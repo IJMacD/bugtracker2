@@ -10,6 +10,8 @@
 
 define("URL_BASE", "/c/bugtracker2");
 
+require_once("Parsedown.php");
+
 $base_len = strlen(URL_BASE);
 
 if (strncmp(URL_BASE, $_SERVER['REQUEST_URI'], $base_len) == 0) {
@@ -22,8 +24,33 @@ if (strncmp(URL_BASE, $_SERVER['REQUEST_URI'], $base_len) == 0) {
 
 switch ($parts[0]) {
   case "issue":
-  case "project":
+    if (count($parts) >= 2) {
+      $context = array("issue" => getIssue($parts[1]));
+      viewIssue($context);
+    }
+    else {
+      methodUnavailable();
+    }
+    break;
+  case "tag":
+    if (count($parts) >= 2) {
+      $context = array("title" => "Tag: ".$parts[1], "issues" => getIssuesByTag($parts[1]));
+      viewIndex($context);
+    }
+    else {
+      methodUnavailable();
+    }
+    break;
   case "user":
+    if (count($parts) >= 2) {
+      $context = array("title" => "User: ".$parts[1], "issues" => getIssuesByUser($parts[1]));
+      viewIndex($context);
+    }
+    else {
+      methodUnavailable();
+    }
+    break;
+  case "project":
     // methodUnavailable();
     // break;
   default:
@@ -41,7 +68,7 @@ function getIssues() {
       "id" => 1,
       "title" => "Test issue",
       "status" => "open",
-      "description" => "#Test Issue\n\nThis is the description of the issue. Here are some points:\n\n*First Point\n*Second Point",
+      "description" => "##Test Issue Details\n\nThis is the description of the issue. Here are some points:\n\n* First Point\n* Second Point",
       "date" => 1497760620,
       "creator" => array(
         "email" => "IJMacD@gmail.com",
@@ -88,12 +115,45 @@ function getIssues() {
   );
 }
 
+function getIssue($id) {
+  $issues = getIssues();
+  foreach($issues as $issue) {
+    if ($issue['id'] == $id) {
+      return $issue;
+    }
+  }
+}
+
+function getIssuesByTag($tag) {
+  $issues = getIssues();
+  $out = array();
+  foreach($issues as $issue) {
+    if (in_array($tag, $issue['tags'])) {
+      $out[] = $issue;
+    }
+  }
+  return $out;
+}
+
+function getIssuesByUser($user) {
+  $issues = getIssues();
+  $out = array();
+  foreach($issues as $issue) {
+    if ($issue['creator']['email'] == $user ||
+        ($issue['asignee'] && $issue['assignee']['email'] == $tag)) {
+      $out[] = $issue;
+    }
+  }
+  return $out;
+}
+
 function viewIndex($context) {
+  $title = isset($context['title']) ? $context['title'] : "BugTracker";
   renderHeader();
   ?>
 
   <h1>
-    BugTracker
+    <?php echo $title ?>
     <button class="btn btn-primary">New Issue</button>
   </h1>
 
@@ -134,6 +194,66 @@ function viewIndex($context) {
   renderFooter();
 }
 
+function viewIssue($context) {
+  $issue = $context['issue'];
+  renderHeader();
+  ?>
+
+  <h1><?php echo $issue['title'] ?></h1>
+
+  <div class="row">
+    <div class="col-md-9">
+      <div class="description">
+      <?php
+        $parsedown = new Parsedown();
+        echo $parsedown->text($issue['description']);
+      ?>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <h2>Created By</h2>
+      <div class="clearfix">
+        <?php echo formatUser($issue['creator']) ?>
+        <div class="date"><?php echo formatDate($issue['date']) ?></div>
+      </div>
+
+      <h2>Assigned To</h2>
+      <div class="clearfix">
+        <?php
+          if ($issue['assignee']) {
+            echo formatUser($issue['assignee']);
+          } else if ($issue['status'] == "open") {
+            echo '<button class="btn btn-sm">Assign</button>';
+          }
+        ?>
+      </div>
+
+      <h2>Status</h2>
+      <div class="clearfix">
+        <?php echo $issue['status']; ?><br>
+        <?php
+          if ($issue['status'] == "open") {
+            echo '<button class="btn btn-sm btn-danger">Close Issue</button>';
+          }
+          else {
+            echo '<button class="btn btn-sm btn-secondary">Re-open Issue</button>';
+          }
+        ?>
+      </div>
+
+      <h2>Tags</h2>
+      <div class="clearfix">
+        <?php echo formatTags($issue['tags']) ?>
+      </div>
+
+    </div>
+  </div>
+
+  <?php
+  renderFooter();
+}
+
 function formatDate($timestamp) {
   if (!$timestamp) return "";
   return date("Y-m-d H:i:s", $timestamp);
@@ -151,7 +271,7 @@ function formatTags($tags) {
   $out = array();
   foreach($tags as $tag) {
     $bg = substr(md5($tag), 0, 6);
-    $out[] = '<a href="'.URL_BASE.'/tags/'.$tag.'" class="badge" style="background: #'.$bg.'">'.$tag.'</a>';
+    $out[] = '<a href="'.URL_BASE.'/tag/'.$tag.'" class="badge" style="background: #'.$bg.'">'.$tag.'</a>';
   }
   return implode(" ", $out);
 }
@@ -190,6 +310,10 @@ function renderHeader() {
       display: inline-block;
       margin: 4px;
       float: left;
+    }
+    .description {
+      border: 2px solid #ccc;
+      padding: 8px;
     }
     </style>
   </title>
