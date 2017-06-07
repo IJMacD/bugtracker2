@@ -9,11 +9,8 @@
 // /bugtracker/user     GET   POST
 
 define("URL_BASE", "/c/bugtracker2");
-define("DB_HOST", "localhost");
-define("DB_NAME", "bugtracker");
-define("DB_USER", "bugtracker");
-define("DB_PASS", "il3ii388i5");
 
+require_once("db.php");
 require_once("Parsedown.php");
 
 $base_len = strlen(URL_BASE);
@@ -29,8 +26,15 @@ if (strncmp(URL_BASE, $_SERVER['REQUEST_URI'], $base_len) == 0) {
 switch ($parts[0]) {
   case "issue":
     if (count($parts) >= 2) {
-      $context = array("issue" => getIssue($parts[1]));
-      viewIssue($context);
+
+      if ($_SERVER['REQUEST_METHOD'] == "POST") {
+        updateIssue($parts[1], $_POST);
+        redirect(URL_BASE . "/issue/" . $parts[1]);
+      }
+      else {
+        $context = array("issue" => getIssue($parts[1]));
+        viewIssue($context);
+      }
     }
     else {
       methodUnavailable();
@@ -67,24 +71,9 @@ function methodUnavailable() {
 }
 
 function getIssues() {
-  $pdo = new PDO("mysql:host=".DB_HOST.";dbname=".DB_NAME.";charset=utf8mb4", DB_USER, DB_PASS);
-  $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+  $db = dbConnect();
 
-  $stmt = $pdo->query("SELECT
-    a.id as id,title,status,description,
-    UNIX_TIMESTAMP(created) as 'date',
-    creator as 'creator_email',b.name as 'creator_name',
-    UNIX_TIMESTAMP(assigned) as 'assigned',
-    assignee as 'assignee_email',c.name as 'assignee_name',
-    UNIX_TIMESTAMP(deadline) as 'deadline',
-    d.tags as 'tags'
-    FROM issues a
-      LEFT JOIN users b ON a.creator = b.email
-      LEFT JOIN users c ON a.assignee = c.email
-      LEFT JOIN (SELECT GROUP_CONCAT(tag SEPARATOR ',') as tags,message_id FROM tags GROUP BY message_id) d ON a.id = d.message_id
-    ORDER BY status DESC, created ASC");
-
-  $issues = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $issues = dbGetIssues($db);
 
   foreach($issues as &$issue) {
     $issue['creator'] = array('email' => $issue['creator_email'], "name" => $issue['creator_name']);
@@ -130,6 +119,12 @@ function getIssuesByUser($user) {
     }
   }
   return $out;
+}
+
+function updateIssue($id, $fields) {
+  $db = dbConnect();
+
+  dbUpdateIssue($db, $id, $fields);
 }
 
 function viewIndex($context) {
@@ -221,10 +216,10 @@ function viewIssue($context) {
         <?php echo $issue['status']; ?><br>
         <?php
           if ($issue['status'] == "open") {
-            echo '<button class="btn btn-sm btn-danger">Close Issue</button>';
+            echo '<form action="" method="post"><input type="hidden" name="status" value="closed" /><input type="submit" class="btn btn-sm btn-danger" value="Close Issue" /></form>';
           }
           else {
-            echo '<button class="btn btn-sm btn-secondary">Re-open Issue</button>';
+            echo '<form action="" method="post"><input type="hidden" name="status" value="open" /><input type="submit" class="btn btn-sm btn-secondary" value="Re-open Issue" /></form>';
           }
         ?>
       </div>
@@ -318,4 +313,10 @@ function renderFooter() {
   </body>
   </html>
   <?php
+}
+
+function redirect ($url) {
+  header("HTTP/1.1 301 Moved Temporarily");
+  header("Location: ".$url);
+  exit;
 }
