@@ -76,26 +76,33 @@ function getIssues() {
   $issues = dbGetIssues($db);
 
   foreach($issues as &$issue) {
-    $issue['creator'] = array('email' => $issue['creator_email'], "name" => $issue['creator_name']);
-    if ($issue['assignee_email']) {
-      $issue['assignee'] = array('email' => $issue['assignee_email'], "name" => $issue['assignee_name']);
-    }
-    else {
-      $issue['assignee'] = null;
-    }
-    $issue['tags'] = explode(",", $issue['tags']);
+    normalizeIssue($issue);
   }
 
   return $issues;
 }
 
 function getIssue($id) {
-  $issues = getIssues();
-  foreach($issues as $issue) {
-    if ($issue['id'] == $id) {
-      return $issue;
+  $db = dbConnect();
+
+  $issue = dbGetIssue($db, $id);
+
+  normalizeIssue($issue);
+
+  $history = dbGetIssueHistory($db, $id);
+  foreach($history as &$entry){
+    $entry['user'] = array(
+      "email" => $entry['user_email'],
+      "name" => $entry['user_name']
+    );
+
+    if ($entry['type'] == "UPDATE") {
+      $entry['value'] = unserialize($entry['value']);
     }
   }
+  $issue['history'] = $history;
+
+  return $issue;
 }
 
 function getIssuesByTag($tag) {
@@ -114,7 +121,7 @@ function getIssuesByUser($user) {
   $out = array();
   foreach($issues as $issue) {
     if ($issue['creator']['email'] == $user ||
-        ($issue['asignee'] && $issue['assignee']['email'] == $tag)) {
+        ($issue['assignee'] && $issue['assignee']['email'] == $user)) {
       $out[] = $issue;
     }
   }
@@ -124,7 +131,25 @@ function getIssuesByUser($user) {
 function updateIssue($id, $fields) {
   $db = dbConnect();
 
-  dbUpdateIssue($db, $id, $fields);
+  $user = "IJMacD@gmail.com";
+
+  if (isset($fields['action'])) {
+    $action = $fields['action'];
+    unset($fields['action']);
+
+    if ($action == "COMMENT") {
+      dbInsertIssueHistory($db, $user, $id, $action, $fields['message']);
+    }
+
+    return;
+  }
+
+  dbUpdateIssue($db, $user, $id, $fields);
+}
+
+function getUser ($email) {
+  $db = dbConnect();
+  return dbGetUser($db, $email);
 }
 
 function viewIndex($context) {
@@ -180,7 +205,14 @@ function viewIssue($context) {
   renderHeader();
   ?>
 
-  <h1><?php echo $issue['title'] ?></h1>
+  <h1>
+  <?php
+    echo $issue['title'];
+    if($issue['status'] == "closed") {
+      echo ' <span class="status">(Closed)</span>';
+    }
+  ?>
+  </h1>
 
   <div class="row">
     <div class="col-md-9">
@@ -190,6 +222,70 @@ function viewIssue($context) {
         echo $parsedown->text($issue['description']);
       ?>
       </div>
+
+      <div class="history">
+        <?php
+        foreach($issue['history'] as $entry) {
+          if ($entry['type'] == "CREATE") {
+            // Skip
+          }
+          else {
+          ?>
+          <div class="history-entry">
+            <div class="user">
+              <?php echo formatUser($entry['user']) ?>
+              <div class="date"><?php echo formatDate($entry['date']) ?></div>
+            </div>
+            <div class="details">
+              <?php
+                if($entry['type'] == "UPDATE") {
+                  $updates = array();
+                  foreach($entry['value'] as $field => $value) {
+                    if ($field == "status") {
+                      echo '<p class="status-change '.$value.'">'.($value == "open" ? 'Opened Issue' : 'Closed Issue').'</p>';
+                    }
+                    else if ($field == "assignee") {
+                      $user = getUser($value);
+                      echo '<p class="assignee-change">Assigned to: '.formatUser($user ? $user : $value).'</p>';
+                    }
+                    else {
+                      $updates[] = "Set $field to '$value'.";
+                    }
+                  }
+                  echo implode("<br>", $updates);
+                } else if ($entry['type'] == "COMMENT") {
+                  $parsedown = new Parsedown;
+                  echo '<div class="message">'.$parsedown->text($entry['value']).'</div>';
+                } else {
+                  echo $entry['value'];
+                }
+              ?>
+            </div>
+          </div>
+          <?php
+          }
+        }
+        ?>
+      </div>
+
+      <?php
+      if ($issue['status'] == "open") {
+      ?>
+        <div class="message">
+          <div class="user">
+            <?php $currentUser = array("email" => "IJMacD@gmail.com", "name" => "Iain MacDonald"); ?>
+            <?php echo formatUser($currentUser); ?>
+            <div class="note">Add Comment</div>
+          </div>
+          <form action="" method="post" class="details">
+            <input type="hidden" name="action" value="COMMENT" />
+            <textarea class="form-control" name="message"></textarea>
+            <input type="submit" class="btn btn-primary" value="Comment" />
+          </form>
+        </div>
+      <?php
+      }
+      ?>
     </div>
 
     <div class="col-md-3">
@@ -205,8 +301,15 @@ function viewIssue($context) {
           if ($issue['assignee']) {
             echo formatUser($issue['assignee']);
             echo '<div class="date">'. formatDate($issue['assigned']) .'</div>';
-          } else if ($issue['status'] == "open") {
-            echo '<button class="btn btn-sm">Assign</button>';
+          }
+          if ($issue['status'] == "open") {
+            echo '<button class="btn btn-sm" data-toggle="#assign-form">'.($issue['assignee'] ? 'Re-assign' : 'Assign').'</button>';
+            echo '<form id="assign-form" action="" method="post" style="display: none; margin:4px;" class="form-inline">'
+                  .'<div class="input-group">'
+                    .'<input type="email" class="form-control" name="assignee" value="'.($issue['assignee'] ? $issue['assignee']['email'] : '').'" />'
+                    .'<input type="submit" value="Set" class="btn btn-primary" />'
+                  .'</div>'
+                .'</form>';
           }
         ?>
       </div>
@@ -241,12 +344,28 @@ function formatDate($timestamp) {
   return date("Y-m-d H:i:s", $timestamp);
 }
 
+/**
+ * formatUser(array("email" => "foo@example.com", "name" => "Foo Bar"))
+ * formatUser("foo@example.com")
+ */
 function formatUser($user){
   if (!$user) return;
+
+  if (is_array($user)) {
+    $email = $user['email'];
+    $name = $user['name'] ? $user['name'] : $email;
+  }
+  else {
+    $email = $name = $user;
+  }
+
   $default = "identicon";
   $size = 48;
-  $grav_url = "https://www.gravatar.com/avatar/" . md5( strtolower( trim( $user['email'] ) ) ) . "?d=" . urlencode( $default ) . "&s=" . $size;
-  return '<div class="avatar" style="background-image: url('.$grav_url.')"></div><a href="'.URL_BASE.'/user/'.$user['email'].'" class="name">'.$user['name'].'</a>';
+  $grav_url = "https://www.gravatar.com/avatar/" . md5( strtolower( trim( $email ) ) ) . "?d=" . urlencode( $default ) . "&s=" . $size;
+  return '<div class="avatar" style="background-image: url('.$grav_url.')"></div>'
+  .'<a href="'.URL_BASE.'/user/'.$email.'" class="name">'
+    .$name
+  .'</a>';
 }
 
 function formatTags($tags) {
@@ -268,6 +387,9 @@ function renderHeader() {
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
     <title>BugTracker</title>
     <style>
+    h1 .status {
+      color: #999;
+    }
     .status-open {
     }
     .status-open.status-unassigned {
@@ -293,9 +415,53 @@ function renderHeader() {
       margin: 4px;
       float: left;
     }
+    .date {
+      font-size: 0.8em;
+      color: #333;
+    }
     .description {
-      border: 2px solid #ccc;
+      border: 1px solid #999;
+      box-shadow: 2px 2px 4px -2px;
       padding: 8px;
+    }
+    .history-entry,
+    .message {
+      display: flex;
+      padding: 16px;
+      margin: 8px;
+    }
+    .history-entry .user,
+    .message .user {
+      width: 200px;
+    }
+    .history-entry .details,
+    .message .details {
+      flex: 1 0 auto;
+      margin: 0 16px;
+    }
+    .history-entry .status-change {
+      font-weight: bold;
+      font-size: 1.5em;
+    }
+    .history-entry .message,
+    .message .details {
+      border: 1px solid #999;
+      box-shadow: 2px 2px 4px -2px;
+      padding: 16px;
+    }
+    .message .note {
+      color: #333;
+      font-size: 0.8em;
+      font-style: italic;
+    }
+    .message .details {
+      text-align: right;
+    }
+    .message .details textarea {
+      height: 150px;
+    }
+    .message .details .btn {
+      margin-top: 4px;
     }
     </style>
   </title>
@@ -310,6 +476,17 @@ function renderHeader() {
 function renderFooter() {
   ?>
     </div>
+    <script>
+    var els = document.querySelectorAll('[data-toggle]');
+    els.forEach(function(el) {
+      el.addEventListener("click", function (){
+        var target = document.querySelector(el.dataset.toggle);
+        if(target) {
+          target.style.display = target.style.display == "none" ? "" : "none";
+        }
+      });
+    });
+    </script>
   </body>
   </html>
   <?php
@@ -319,4 +496,15 @@ function redirect ($url) {
   header("HTTP/1.1 301 Moved Temporarily");
   header("Location: ".$url);
   exit;
+}
+
+function normalizeIssue (&$issue) {
+    $issue['creator'] = array('email' => $issue['creator_email'], "name" => $issue['creator_name']);
+    if ($issue['assignee_email']) {
+      $issue['assignee'] = array('email' => $issue['assignee_email'], "name" => $issue['assignee_name']);
+    }
+    else {
+      $issue['assignee'] = null;
+    }
+    $issue['tags'] = explode(",", $issue['tags']);
 }
