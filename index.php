@@ -184,7 +184,7 @@ function viewIndex($context) {
               echo formatUser($issue['assignee']);
               echo '<div class="date">'. formatDate($issue['assigned']) .'</div>';
             } else if ($issue['status'] == "open") {
-              echo '<button class="btn btn-sm">Assign</button>';
+              renderAssignment($issue);
             }
           ?></td>
           <td><?php echo formatDate($issue['deadline']) ?></td>
@@ -303,13 +303,7 @@ function viewIssue($context) {
             echo '<div class="date">'. formatDate($issue['assigned']) .'</div>';
           }
           if ($issue['status'] == "open") {
-            echo '<button class="btn btn-sm" data-toggle="#assign-form">'.($issue['assignee'] ? 'Re-assign' : 'Assign').'</button>';
-            echo '<form id="assign-form" action="" method="post" style="display: none; margin:4px;" class="form-inline">'
-                  .'<div class="input-group">'
-                    .'<input type="email" class="form-control" name="assignee" value="'.($issue['assignee'] ? $issue['assignee']['email'] : '').'" />'
-                    .'<input type="submit" value="Set" class="btn btn-primary" />'
-                  .'</div>'
-                .'</form>';
+            renderAssignment($issue);
           }
         ?>
       </div>
@@ -330,6 +324,21 @@ function viewIssue($context) {
       <h2>Tags</h2>
       <div class="clearfix">
         <?php echo formatTags($issue['tags']) ?>
+        <?php
+          if ($issue['status'] == "open") { ?>
+            <div>
+              <button class="btn btn-default btn-sm" data-toggle="#edit-tags">Edit Tags</button>
+              <form action="" method="post" style="display: none;" id="edit-tags">
+                <textarea class="form-control m-1" name="tags" style="font-family: monospace"><?php
+                  echo implode(", ", $issue['tags']);
+                ?></textarea>
+                <div class="note">Comma separated</div>
+                <input type="submit" class="btn btn-primary m-1" value="Save" />
+              </form>
+            </div>
+        <?php
+        }
+        ?>
       </div>
 
     </div>
@@ -363,7 +372,7 @@ function formatUser($user){
   $size = 48;
   $grav_url = "https://www.gravatar.com/avatar/" . md5( strtolower( trim( $email ) ) ) . "?d=" . urlencode( $default ) . "&s=" . $size;
   return '<div class="avatar" style="background-image: url('.$grav_url.')"></div>'
-  .'<a href="'.URL_BASE.'/user/'.$email.'" class="name">'
+  .'<a href="'.URL_BASE.'/user/'.$email.'" class="name" title="'.$email.'">'
     .$name
   .'</a>';
 }
@@ -371,6 +380,7 @@ function formatUser($user){
 function formatTags($tags) {
   $out = array();
   foreach($tags as $tag) {
+    $tag = trim($tag);
     $bg = substr(md5($tag), 0, 6);
     $out[] = '<a href="'.URL_BASE.'/tag/'.$tag.'" class="badge" style="background: #'.$bg.'">'.$tag.'</a>';
   }
@@ -387,8 +397,17 @@ function renderHeader() {
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
     <title>BugTracker</title>
     <style>
+    .container {
+      padding-top: 16px;
+    }
     h1 .status {
       color: #999;
+    }
+    .floating {
+      position: absolute;
+      background: white;
+      border: 1px solid #999;
+      padding: 8px;
     }
     .status-open {
     }
@@ -449,7 +468,7 @@ function renderHeader() {
       box-shadow: 2px 2px 4px -2px;
       padding: 16px;
     }
-    .message .note {
+    .note {
       color: #333;
       font-size: 0.8em;
       font-style: italic;
@@ -492,6 +511,24 @@ function renderFooter() {
   <?php
 }
 
+function renderAssignment ($issue) {
+  $formId = "assign-form-" . rand(1, 1000000);
+  ?>
+  <button class="btn btn-sm" data-toggle="<?php echo '#'.$formId; ?>"><?php echo ($issue['assignee'] ? 'Re-assign' : 'Assign') ?></button>
+  <form
+    id="<?php echo $formId ?>"
+    action="<?php echo URL_BASE . "/issue/" . $issue['id']?>"
+    method="post" style="display: none; margin:4px;"
+    class="form-inline floating"
+  >
+    <div class="input-group">
+      <input type="email" class="form-control" name="assignee" value="<?php echo ($issue['assignee'] ? $issue['assignee']['email'] : '') ?>" />
+      <input type="submit" value="Set" class="btn btn-primary" />
+    </div>
+  </form>
+  <?php
+}
+
 function redirect ($url) {
   header("HTTP/1.1 301 Moved Temporarily");
   header("Location: ".$url);
@@ -500,11 +537,16 @@ function redirect ($url) {
 
 function normalizeIssue (&$issue) {
     $issue['creator'] = array('email' => $issue['creator_email'], "name" => $issue['creator_name']);
+
     if ($issue['assignee_email']) {
       $issue['assignee'] = array('email' => $issue['assignee_email'], "name" => $issue['assignee_name']);
     }
     else {
       $issue['assignee'] = null;
     }
+
     $issue['tags'] = explode(",", $issue['tags']);
+    foreach($issue['tags'] as &$tag) {
+      $tag = trim($tag);
+    }
 }

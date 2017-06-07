@@ -17,16 +17,17 @@ function dbGetIssues($db) {
   $stmt = $db->query("SELECT
     a.id as id,title,status,description,
     UNIX_TIMESTAMP(created) as 'date',
-    creator as 'creator_email',b.name as 'creator_name',
+    creator as 'creator_email',
+    b.name as 'creator_name',
     UNIX_TIMESTAMP(assigned) as 'assigned',
-    assignee as 'assignee_email',c.name as 'assignee_name',
+    assignee as 'assignee_email',
+    c.name as 'assignee_name',
     UNIX_TIMESTAMP(deadline) as 'deadline',
-    d.tags as 'tags'
+    tags
     FROM issues a
       LEFT JOIN users b ON a.creator = b.email
       LEFT JOIN users c ON a.assignee = c.email
-      LEFT JOIN (SELECT GROUP_CONCAT(tag SEPARATOR ',') as tags,message_id FROM tags GROUP BY message_id) d ON a.id = d.message_id
-    ORDER BY status DESC, created ASC");
+    ORDER BY status DESC, assignee_email = '' DESC, created ASC");
 
   return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -40,11 +41,10 @@ function dbGetIssue($db, $id) {
     UNIX_TIMESTAMP(assigned) as 'assigned',
     assignee as 'assignee_email',c.name as 'assignee_name',
     UNIX_TIMESTAMP(deadline) as 'deadline',
-    d.tags as 'tags'
+    tags
     FROM issues a
       LEFT JOIN users b ON a.creator = b.email
       LEFT JOIN users c ON a.assignee = c.email
-      LEFT JOIN (SELECT GROUP_CONCAT(tag SEPARATOR ',') as tags,message_id FROM tags GROUP BY message_id) d ON a.id = d.message_id
     WHERE a.id = ?");
 
   $stmt->execute(array($id));
@@ -58,7 +58,7 @@ function dbInsertIssue($db, $user, $fields) {
     $stmt->execute(array($fields['title'], $fields['description'], $fields['creator']));
 
     $data = serialize($fields);
-    dbInsertIssueHistory($db->lastInsertId(), $fields['creator'], "CREATE", $data);
+    dbInsertIssueHistory($db, $db->lastInsertId(), $user, "CREATE", $data);
 }
 
 function dbUpdateIssue($db, $user, $id, $fields) {

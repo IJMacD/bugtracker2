@@ -63,7 +63,7 @@ function importMessages () {
 
                     $fields = array("title" => $title, "description" => $body, "creator" => $from_address);
                     // print_r($fields);
-                    dbInsertIssue($db, $fields);
+                    dbInsertIssue($db, $from_address, $fields);
 
                     $inserted++;
 
