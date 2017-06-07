@@ -7,7 +7,7 @@ $password = 'il3ii388i5';
 require_once("db.php");
 require_once("class.phpmailer.php");
 require_once("class.smtp.php");
-require_once("Parsedown.php");
+// require_once("Parsedown.php");
 
 importMessages();
 
@@ -70,8 +70,11 @@ function importMessages () {
                     //Send email saying successful
                     $reply_to = $overview[0]->from;
                     $reply_subject = "Re: " . $title;
-                    $parsedown = new Parsedown;
-                    $reply_body = "<p>Dear $from_name,</p>\n<p>Your issue has been added. You will be notified when there are any updates.</p>\n\n<div style=\"border: 2px solid #ccc;\">".$parsedown->text($body)."</div>";
+                    // Including a copy in the reply causes jank when gmail tries to quote it.
+                    // $parsedown = new Parsedown;
+                    $reply_body = "<p>Dear $from_name,</p>\n<p>Your issue has been added. You will be notified when there are any updates.</p>\n\n"
+                    //."<div style=\"border: 2px solid #ccc;\">".$parsedown->text($body)."</div>"
+                    ;
                     $reply_headers = array(
                         "In-Reply-To" => $overview[0]->message_id
                     );

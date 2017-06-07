@@ -8,6 +8,8 @@
 // /bugtracker/project  GET   POST
 // /bugtracker/user     GET   POST
 
+date_default_timezone_set("Asia/Hong_Kong");
+
 define("URL_BASE", "/c/bugtracker2");
 
 require_once("db.php");
@@ -119,9 +121,10 @@ function getIssuesByTag($tag) {
 function getIssuesByUser($user) {
   $issues = getIssues();
   $out = array();
+  $_user = strtolower($user);
   foreach($issues as $issue) {
-    if ($issue['creator']['email'] == $user ||
-        ($issue['assignee'] && $issue['assignee']['email'] == $user)) {
+    if (strtolower($issue['creator']['email']) == $_user ||
+        ($issue['assignee'] && strtolower($issue['assignee']['email']) == $_user)) {
       $out[] = $issue;
     }
   }
@@ -184,10 +187,13 @@ function viewIndex($context) {
               echo formatUser($issue['assignee']);
               echo '<div class="date">'. formatDate($issue['assigned']) .'</div>';
             } else if ($issue['status'] == "open") {
-              renderAssignment($issue);
+              renderAssignment($issue, true);
             }
           ?></td>
-          <td><?php echo formatDate($issue['deadline']) ?></td>
+          <td><?php
+            $class = ($issue['status'] == "open" && $issue['deadline'] < time() ? "deadline-expired" : "");
+            echo '<span class="'.$class.'">' . formatDate($issue['deadline']) . '</span>';
+          ?></td>
           <td><?php echo formatTags($issue['tags']) ?></td>
         </tr>
         <?php
@@ -295,50 +301,85 @@ function viewIssue($context) {
         <div class="date"><?php echo formatDate($issue['date']) ?></div>
       </div>
 
-      <h2>Assigned To</h2>
+      <h2>
+      Assigned To
+      <?php
+      if ($issue['status'] == "open") {
+        renderAssignment($issue);
+      }
+      ?>
+      </h2>
       <div class="clearfix">
         <?php
           if ($issue['assignee']) {
             echo formatUser($issue['assignee']);
             echo '<div class="date">'. formatDate($issue['assigned']) .'</div>';
           }
-          if ($issue['status'] == "open") {
-            renderAssignment($issue);
-          }
         ?>
       </div>
 
-      <h2>Status</h2>
-      <div class="clearfix">
-        <?php echo $issue['status']; ?><br>
+      <h2>
+        Status
         <?php
           if ($issue['status'] == "open") {
-            echo '<form action="" method="post"><input type="hidden" name="status" value="closed" /><input type="submit" class="btn btn-sm btn-danger" value="Close Issue" /></form>';
+            $value = "closed";
+            $class = "btn-danger";
+            $label = "Close Issue";
           }
           else {
-            echo '<form action="" method="post"><input type="hidden" name="status" value="open" /><input type="submit" class="btn btn-sm btn-secondary" value="Re-open Issue" /></form>';
+            $value = "open";
+            $class = "btn-default";
+            $label = "Re-open Issue";
           }
         ?>
+        <form action="" method="post" style="display: inline;">
+          <input type="hidden" name="status" value="<?php echo $value ?>" />
+          <input type="submit" class="btn btn-sm <?php echo $class ?>" value="<?php echo $label ?>" />
+        </form>
+      </h2>
+      <div class="clearfix">
+        <?php echo $issue['status']; ?>
       </div>
 
-      <h2>Tags</h2>
-      <div class="clearfix">
-        <?php echo formatTags($issue['tags']) ?>
+      <h2>
+        Deadline
         <?php
           if ($issue['status'] == "open") { ?>
-            <div>
-              <button class="btn btn-default btn-sm" data-toggle="#edit-tags">Edit Tags</button>
-              <form action="" method="post" style="display: none;" id="edit-tags">
-                <textarea class="form-control m-1" name="tags" style="font-family: monospace"><?php
-                  echo implode(", ", $issue['tags']);
-                ?></textarea>
-                <div class="note">Comma separated</div>
-                <input type="submit" class="btn btn-primary m-1" value="Save" />
-              </form>
-            </div>
-        <?php
-        }
+            <button class="btn btn-default btn-sm" data-toggle="#edit-deadline">Set Deadline</button>
+          <?php
+          }
         ?>
+      </h2>
+      <div class="clearfix">
+        <?php
+          $class = ($issue['status'] == "open" && $issue['deadline'] < time() ? "deadline-expired" : "");
+          echo '<span class="'.$class.'">' . formatDate($issue['deadline']) . '</span>';
+        ?>
+        <form action="" method="post" style="display: none;" id="edit-deadline">
+          <input class="form-control m-1" name="deadline" type="datetime-local" value="<?php echo substr(date('c', $issue['deadline']), 0, 19) ?>" />
+          <input type="submit" class="btn btn-primary m-1" value="Set" />
+        </form>
+      </div>
+
+
+      <h2>
+        Tags
+        <?php
+          if ($issue['status'] == "open") { ?>
+            <button class="btn btn-default btn-sm" data-toggle="#edit-tags">Edit Tags</button>
+          <?php
+          }
+        ?>
+      </h2>
+      <div class="clearfix">
+        <?php echo formatTags($issue['tags']) ?>
+        <form action="" method="post" style="display: none;" id="edit-tags">
+          <textarea class="form-control m-1" name="tags" style="font-family: monospace"><?php
+            echo implode(", ", $issue['tags']);
+          ?></textarea>
+          <div class="note">Comma separated</div>
+          <input type="submit" class="btn btn-primary m-1" value="Save" />
+        </form>
       </div>
 
     </div>
@@ -462,6 +503,12 @@ function renderHeader() {
       font-weight: bold;
       font-size: 1.5em;
     }
+    .status-change.open {
+      color: #5cb85c;
+    }
+    .status-change.closed {
+      color: #d9534f;
+    }
     .history-entry .message,
     .message .details {
       border: 1px solid #999;
@@ -481,6 +528,9 @@ function renderHeader() {
     }
     .message .details .btn {
       margin-top: 4px;
+    }
+    .deadline-expired {
+      color: #c00;
     }
     </style>
   </title>
@@ -511,7 +561,7 @@ function renderFooter() {
   <?php
 }
 
-function renderAssignment ($issue) {
+function renderAssignment ($issue, $floating=false) {
   $formId = "assign-form-" . rand(1, 1000000);
   ?>
   <button class="btn btn-sm" data-toggle="<?php echo '#'.$formId; ?>"><?php echo ($issue['assignee'] ? 'Re-assign' : 'Assign') ?></button>
@@ -519,7 +569,7 @@ function renderAssignment ($issue) {
     id="<?php echo $formId ?>"
     action="<?php echo URL_BASE . "/issue/" . $issue['id']?>"
     method="post" style="display: none; margin:4px;"
-    class="form-inline floating"
+    class="form-inline <?php echo ($floating ? "floating" : "") ?>"
   >
     <div class="input-group">
       <input type="email" class="form-control" name="assignee" value="<?php echo ($issue['assignee'] ? $issue['assignee']['email'] : '') ?>" />
