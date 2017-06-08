@@ -186,7 +186,7 @@ function viewIndex($context) {
         ?>
         <tr class="status-<?php echo $issue['status'] ?> <?php echo $issue['assignee'] ? "status-assigned" : "status-unassigned" ?>">
           <td><a href="<?php echo URL_BASE ?>/issue/<?php echo $issue['id'] ?>"><?php echo $issue['title'] ?></a></td>
-          <td class="status"><?php echo $issue['status'] ?></td>
+          <td class="status"><?php echo $issue['status']; if($issue['status'] == "open" && !$issue['assignee']) { echo ", unassigned"; } ?></td>
           <td>
             <?php echo formatUser($issue['creator']) ?>
             <div class="date"><?php echo formatDate($issue['date']) ?></div>
@@ -305,7 +305,7 @@ function viewIssue($context) {
       <?php
       if ($issue['status'] == "open") {
       ?>
-        <div class="message">
+        <div class="edit-message">
           <div class="user">
             <?php $currentUser = array("email" => "IJMacD@gmail.com", "name" => "Iain MacDonald"); ?>
             <?php echo formatUser($currentUser); ?>
@@ -513,18 +513,19 @@ function renderHeader() {
       padding: 8px;
     }
     .history-entry,
-    .message {
+    .edit-message {
       display: flex;
       padding: 16px;
       margin: 8px;
     }
     .history-entry .user,
-    .message .user {
+    .edit-message .user {
       width: 200px;
+      flex-shrink: 0;
     }
     .history-entry .details,
-    .message .details {
-      flex: 1 0 auto;
+    .edit-message .details {
+      flex: 1 0 200px;
       margin: 0 16px;
     }
     .history-entry .status-change {
@@ -538,7 +539,7 @@ function renderHeader() {
       color: #d9534f;
     }
     .history-entry .message,
-    .message .details {
+    .edit-message .details {
       border: 1px solid #999;
       box-shadow: 2px 2px 4px -2px;
       padding: 16px;
@@ -548,13 +549,13 @@ function renderHeader() {
       font-size: 0.8em;
       font-style: italic;
     }
-    .message .details {
+    .edit-message .details {
       text-align: right;
     }
-    .message .details textarea {
+    .edit-message .details textarea {
       height: 150px;
     }
-    .message .details .btn {
+    .edit-message .details .btn {
       margin-top: 4px;
     }
     .deadline-expired {

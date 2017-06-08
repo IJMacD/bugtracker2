@@ -1,23 +1,21 @@
 <?php
-/* connect to gmail */
-$hostname = '{imap.gmail.com:993/imap/ssl}INBOX';
-$username = 'bugtracker.ilearner@gmail.com';
-$password = 'il3ii388i5';
 
+require_once("mail.php");
 require_once("db.php");
-require_once("class.phpmailer.php");
-require_once("class.smtp.php");
-// require_once("Parsedown.php");
+
+// If we're in the browser make sure output is formatted
+if (PHP_SAPI !== "cli") {
+    echo "<pre>\n";
+}
 
 importMessages();
 
 function importMessages () {
-    global $hostname, $username, $password;
+    global $username; // Urgh
 
     $inserted = 0;
 
-    /* try to connect */
-    $inbox = imap_open($hostname,$username ,$password) or die('Cannot connect to Gmail: ' . imap_last_error());
+    $inbox = mailConnect();
 
     // $mailboxes = imap_list($inbox, '{imap.gmail.com:993/imap/ssl}', "*");
 
@@ -33,11 +31,11 @@ function importMessages () {
     /* if emails are returned, cycle through each... */
     if($emails) {
 
-        echo "Emails found: ".count($emails)."<br>";
+        echo "Emails found: ".count($emails)."\n";
 
         /* for every email... */
         foreach($emails as $email_number) {
-            echo "Processing email $email_number<br>";
+            echo "Processing email $email_number\n";
 
             /* get information specific to this email */
             $overview = imap_fetch_overview($inbox,$email_number,0);
@@ -54,7 +52,7 @@ function importMessages () {
                 }
 
                 if ($from_address == $username) {
-                    echo "Self-email detected<br>";
+                    echo "Self-email detected\n";
                     continue;
                 }
 
@@ -70,7 +68,7 @@ function importMessages () {
 
                         $issue_id = $matches[1];
 
-                        echo "Found reply to issue $issue_id<br>";
+                        echo "Found reply to issue $issue_id\n";
 
                         $lines = explode("\n", $body);
                         $filtered = array();
@@ -114,7 +112,7 @@ function importMessages () {
                 else if(!preg_match("/no-?reply/", $overview[0]->from)) {
                     // Not spam email
 
-                    echo "Rejected Email found.<br>";
+                    echo "Rejected Email found.\n";
 
                     // Send reply notififying they are not registered
                     $reply_to = $overview[0]->from;
@@ -127,11 +125,11 @@ function importMessages () {
                     send_email($reply_to, $reply_subject, $reply_body, $reply_headers);
                 }
                 else {
-                    echo "Spam Email found.<br>";
+                    echo "Spam Email found.\n";
                 }
             }
             else {
-                echo "No emails found<br>";
+                echo "No emails found\n";
             }
 
             // Archive email
@@ -145,13 +143,8 @@ function importMessages () {
     /* close the connection */
     imap_close($inbox);
 
-    echo "Inserted Issues: $inserted<br>";
+    echo "Inserted Issues: $inserted\n";
 
-}
-
-function br2nl($text){
-    return str_replace("</div>", "</div>\n", $text);
-    return str_replace("<br>", "\n", str_replace("</div>", "</div>\n", $text));
 }
 
 function is_user($users, $email) {
@@ -162,49 +155,3 @@ function is_user($users, $email) {
     }
     return false;
 }
-
-function send_email ($to, $subject, $body, $headers) {
-    global $username, $password;
-    $mail = new PHPMailer();
-
-    $mail->IsSMTP();
-
-    $mail->SMTPAuth   = true;                  // enable SMTP authentication
-    $mail->SMTPSecure = "ssl";                 // sets the prefix to the servier
-    $mail->Host       = "smtp.gmail.com";      // sets GMAIL as the SMTP server
-    $mail->Port       = 465;                   // set the SMTP port for the GMAIL server
-    $mail->Username   = $username;             // GMAIL username
-    $mail->Password   = $password;            // GMAIL password
-
-    $mail->SetFrom($username, "i-Learner Bugtracker");
-
-    $mail->Subject    = $subject;
-
-    $mail->MsgHTML($body);
-
-    $addresses = imap_rfc822_parse_adrlist($to, "");
-
-    if ($addresses && count($addresses) >= 1) {
-        foreach ($addresses as $address) {
-            $mail->AddAddress($address->mailbox . "@" . $address->host, $address->personal);
-        }
-    } else {
-        echo 'No \'To\' addresses parsed';
-        return;
-    }
-
-    if ($headers) {
-        foreach ($headers as $name => $value) {
-            $mail->addCustomHeader($name, $value);
-        }
-    }
-
-    if(!$mail->send()) {
-        echo 'Message could not be sent.<br>';
-        echo 'Mailer Error: ' . $mail->ErrorInfo."<br>";
-    }
-    // else {
-    //     echo 'Message has been sent';
-    // }
-}
-?>

@@ -14,7 +14,22 @@ function dbConnect() {
 
 function dbGetIssues($db) {
 
-  $stmt = $db->query("SELECT
+  $stmt = $db->query(_selectIssues() . " ORDER BY status DESC, assignee_email = '' DESC, created ASC");
+
+  return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function dbGetIssue($db, $id) {
+
+  $stmt = $db->prepare(_selectIssues() . " WHERE a.id = ?");
+
+  $stmt->execute(array($id));
+
+  return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function _selectIssues() {
+  return "SELECT
     a.id as id,title,status,description,
     UNIX_TIMESTAMP(created) as 'date',
     creator as 'creator_email',
@@ -26,30 +41,7 @@ function dbGetIssues($db) {
     tags
     FROM issues a
       LEFT JOIN users b ON a.creator = b.email
-      LEFT JOIN users c ON a.assignee = c.email
-    ORDER BY status DESC, assignee_email = '' DESC, created ASC");
-
-  return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-function dbGetIssue($db, $id) {
-
-  $stmt = $db->prepare("SELECT
-    a.id as id,title,status,description,
-    UNIX_TIMESTAMP(created) as 'date',
-    creator as 'creator_email',b.name as 'creator_name',
-    UNIX_TIMESTAMP(assigned) as 'assigned',
-    assignee as 'assignee_email',c.name as 'assignee_name',
-    UNIX_TIMESTAMP(deadline) as 'deadline',
-    tags
-    FROM issues a
-      LEFT JOIN users b ON a.creator = b.email
-      LEFT JOIN users c ON a.assignee = c.email
-    WHERE a.id = ?");
-
-  $stmt->execute(array($id));
-
-  return $stmt->fetch(PDO::FETCH_ASSOC);
+      LEFT JOIN users c ON a.assignee = c.email";
 }
 
 function dbInsertIssue($db, $user, $fields) {
@@ -61,6 +53,8 @@ function dbInsertIssue($db, $user, $fields) {
 
     $data = serialize($fields);
     dbInsertIssueHistory($db, $id, $user, "CREATE", $data);
+
+    dbInsertIssueNotify($db, $id, $user, 1);
 
     return $id;
 }
@@ -98,6 +92,17 @@ function dbGetIssueHistory($db, $id) {
 function dbInsertIssueHistory($db, $user, $id, $type, $value) {
     $stmt = $db->prepare("INSERT INTO history (issue_id, user, type, value) VALUES (?, ?, ?, ?)");
     $stmt->execute(array($id, $user, $type, $value));
+}
+
+function dbGetIssueNotify($db, $id) {
+  $stmt = $db->prepare("SELECT user as email, name FROM notify LEFT JOIN users ON user = email WHERE issue_id = ? AND enabled = 1");
+  $stmt->execute(array($id));
+  return $stmt->fetchALL(PDO::FETCH_ASSOC);
+}
+
+function dbInsertIssueNotify($db, $user, $id, $enabled) {
+  $stmt = $db->prepare("INSERT INTO notify (issue_id, user, enabled) VALUES (?, ?, ?)");
+  $stmt->execute(array($id, $user, $enabled));
 }
 
 function dbGetUsers($db) {
