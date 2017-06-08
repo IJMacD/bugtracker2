@@ -53,33 +53,62 @@ function importMessages () {
                     $from_name = $from_address;
                 }
 
-                if (is_user($users, $from_address)) {
-                    // Import
+                if ($from_address == $username) {
+                    echo "Self-email detected<br>";
+                    continue;
+                }
 
-                    $title = $overview[0]->subject;
+                if (is_user($users, $from_address)) {
+
+                    $title = imap_utf8($overview[0]->subject);
 
                     // print_r(imap_fetchstructure($inbox, $email_number));
                     $body = quoted_printable_decode(imap_fetchbody($inbox, $email_number, 1)); // Plain Text
 
-                    $fields = array("title" => $title, "description" => $body, "creator" => $from_address);
-                    // print_r($fields);
-                    dbInsertIssue($db, $from_address, $fields);
+                    if (preg_match("/Issue ID: (\d+)/", $body, $matches)) {
+                        // Reply to previous issue
 
-                    $inserted++;
+                        $issue_id = $matches[1];
 
-                    //Send email saying successful
-                    $reply_to = $overview[0]->from;
-                    $reply_subject = "Re: " . $title;
-                    // Including a copy in the reply causes jank when gmail tries to quote it.
-                    // $parsedown = new Parsedown;
-                    $reply_body = "<p>Dear $from_name,</p>\n<p>Your issue has been added. You will be notified when there are any updates.</p>\n\n"
-                    //."<div style=\"border: 2px solid #ccc;\">".$parsedown->text($body)."</div>"
-                    ;
-                    $reply_headers = array(
-                        "In-Reply-To" => $overview[0]->message_id
-                    );
+                        echo "Found reply to issue $issue_id<br>";
 
-                    send_email($reply_to, $reply_subject, $reply_body, $reply_headers);
+                        $lines = explode("\n", $body);
+                        $filtered = array();
+                        foreach($lines as $line) {
+                            if(strlen($line) && $line[0] != ">") {
+                                $filtered[] = $line;
+                            }
+                        }
+
+                        $truncated = array_slice($filtered, 0, -3);
+
+                        $message = trim(implode("\n", $truncated));
+
+                        dbInsertIssueHistory($db, $from_address, $issue_id, "COMMENT", $message);
+                    }
+                    else {
+                        // Import new issue
+
+                        $fields = array("title" => $title, "description" => $body, "creator" => $from_address);
+                        // print_r($fields);
+                        $id = dbInsertIssue($db, $from_address, $fields);
+
+                        $inserted++;
+
+                        //Send email saying successful
+                        $reply_to = $overview[0]->from;
+                        $reply_subject = "Re: " . $title;
+                        // Including a copy in the reply causes jank when gmail tries to quote it.
+                        $reply_body = "<p>Dear $from_name,</p>\n"
+                            ."<p>Your issue has been added. You will be notified when there are any updates.</p>\n\n"
+                            .'<hr style="border-top: 1px solid #999; margin-top: 50px;" />'
+                            .'<p style="font-size: 0.8em; color: #666;">Issue ID: '.$id.'</p>';
+                        $reply_headers = array(
+                            "In-Reply-To" => $overview[0]->message_id
+                        );
+
+                        send_email($reply_to, $reply_subject, $reply_body, $reply_headers);
+                    }
 
                 }
                 else if(!preg_match("/no-?reply/", $overview[0]->from)) {

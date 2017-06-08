@@ -57,8 +57,12 @@ function dbInsertIssue($db, $user, $fields) {
 
     $stmt->execute(array($fields['title'], $fields['description'], $fields['creator']));
 
+    $id = $db->lastInsertId();
+
     $data = serialize($fields);
-    dbInsertIssueHistory($db, $db->lastInsertId(), $user, "CREATE", $data);
+    dbInsertIssueHistory($db, $id, $user, "CREATE", $data);
+
+    return $id;
 }
 
 function dbUpdateIssue($db, $user, $id, $fields) {
