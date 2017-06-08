@@ -31,7 +31,12 @@ switch ($parts[0]) {
 
       if ($_SERVER['REQUEST_METHOD'] == "POST") {
         updateIssue($parts[1], $_POST);
-        redirect(URL_BASE . "/issue/" . $parts[1]);
+
+        if (isset($_SERVER['HTTP_REFERER'])) {
+          redirect($_SERVER['HTTP_REFERER']);
+        } else {
+          redirect(URL_BASE . "/issue/" . $parts[1]);
+        }
       }
       else {
         $context = array("issue" => getIssue($parts[1]));
@@ -147,6 +152,10 @@ function updateIssue($id, $fields) {
     return;
   }
 
+  if (isset($fields['assignee'])) {
+    $fields['assigned'] = date('c');
+  }
+
   dbUpdateIssue($db, $user, $id, $fields);
 }
 
@@ -216,16 +225,32 @@ function viewIssue($context) {
     echo $issue['title'];
     if($issue['status'] == "closed") {
       echo ' <span class="status">(Closed)</span>';
+    } else if ($issue['status'] == "open") {
+      echo '<button class="btn btn-default btn-sm" data-toggle="#edit-title">Edit Title</button>';
     }
   ?>
   </h1>
 
   <div class="row">
     <div class="col-md-9">
-      <div class="description">
+      <form action="" method="post" style="display: none;" class="form-inline" id="edit-title">
+        <input type="text" class="form-control m-1" style="flex-grow:1;" name="title" value="<?php echo $issue['title'] ?>" />
+        <input type="submit" class="form-control btn btn-primary m-1" value="Save" />
+      </form>
+      <div class="description clearfix">
       <?php
         $parsedown = new Parsedown();
         echo $parsedown->text($issue['description']);
+
+        if ($issue['status'] == "open") {
+        ?>
+          <button class="btn btn-default btn-sm float-right" data-toggle="#edit-description">Edit Description</button>
+          <form action="" method="post" id="edit-description" style="display: none;" >
+            <textarea class="form-control m-1" name="description" style="height: 160px;"><?php echo $issue['description']; ?></textarea>
+            <input type="submit" class="btn btn-primary m-1" value="Save" />
+          </form>
+        <?php
+        }
       ?>
       </div>
 
@@ -253,6 +278,9 @@ function viewIssue($context) {
                     else if ($field == "assignee") {
                       $user = getUser($value);
                       echo '<p class="assignee-change">Assigned to: '.formatUser($user ? $user : $value).'</p>';
+                    }
+                    else if ($field == "assigned") {
+                      // ignore
                     }
                     else {
                       $updates[] = "Set $field to '$value'.";
@@ -356,7 +384,7 @@ function viewIssue($context) {
           echo '<span class="'.$class.'">' . formatDate($issue['deadline']) . '</span>';
         ?>
         <form action="" method="post" style="display: none;" id="edit-deadline">
-          <input class="form-control m-1" name="deadline" type="datetime-local" value="<?php echo substr(date('c', $issue['deadline']), 0, 19) ?>" />
+          <input class="form-control m-1" name="deadline" type="datetime-local" value="<?php echo ($issue['deadline'] ? substr(date('c', $issue['deadline']), 0, 19) : '') ?>" />
           <input type="submit" class="btn btn-primary m-1" value="Set" />
         </form>
       </div>
@@ -456,7 +484,7 @@ function renderHeader() {
       font-weight: bold;
     }
     .status-open.status-assigned .status {
-      color: #633;
+      /*color: #633;*/
     }
     .status-closed td,
     .status-closed a {
@@ -572,7 +600,7 @@ function renderAssignment ($issue, $floating=false) {
     class="form-inline <?php echo ($floating ? "floating" : "") ?>"
   >
     <div class="input-group">
-      <input type="email" class="form-control" name="assignee" value="<?php echo ($issue['assignee'] ? $issue['assignee']['email'] : '') ?>" />
+      <input type="email" class="form-control" name="assignee" autocomplete="email" value="<?php echo ($issue['assignee'] ? $issue['assignee']['email'] : '') ?>" />
       <input type="submit" value="Set" class="btn btn-primary" />
     </div>
   </form>
