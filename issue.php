@@ -83,7 +83,26 @@ class Issue {
       $fields['assigned'] = date('c');
     }
 
+    if (isset($fields['subscribers'])) {
+      $list = imap_rfc822_parse_adrlist($fields['subscribers'], null);
+
+      $notify = $db->getIssueNotify($id);
+      $notify_email = array_map(function($user) { return $user['email']; }, $notify);
+
+      foreach($list as $addr) {
+        $email = $addr->mailbox . "@" . $addr->host;
+        if (!in_array($email, $notify_email)) {
+          $db->insertIssueNotify($email, $id, true);
+        }
+      }
+
+      // unset($fields['subscribers']);
+    }
+
     $db->updateIssue($user, $id, $fields);
+
+    $data = serialize($fields);
+    $db->insertIssueHistory($user, $id, "UPDATE", $data);
   }
 
   function addIssue($user, $options) {
@@ -136,7 +155,6 @@ class Issue {
       $db->insertIssueNotify($issue_id, $email, true);
     }
 
-    $this->notifyIssue(null, $issue_id);
   }
 
   function replyIssue($user, $issue_id, $message) {
@@ -144,45 +162,8 @@ class Issue {
 
     $db->insertIssueHistory($user, $issue_id, "COMMENT", $message);
 
-    $this->notifyIssue($user, $issue_id, $subject, $body);
   }
 
-  function notifyIssue($exclude_user, $issue_id, $subject, $body) {
-    global $db;
-
-    $issue = $db->getIssue($issue);
-    $messageID = isset($issue["message_id"]) ? $issue["message_id"] : null;
-
-    $to = array();
-    foreach($db->getIssueNotify($issue_id) as $email) {
-
-      if($exclude_user !== $email) {
-        $user = $db->getUser($email);
-
-        if ($u) {
-          $to[] = $user["name"] . " <" . $email .">";
-        }
-        else {
-          $to[] = $email;
-        }
-      }
-    }
-
-    $headers = array();
-
-    if ($messageID) {
-      $headers["In-Reply-To"] = $messageID;
-    }
-
-    $mail->sendMail($to, $subject, $body, $headers);
-
-    // Update most recent messageID for correct threading.
-    // May not be strictly necessary to have the latest but at least
-    // it should ensure that we do indeed have one.
-    $messageID = $mail->getLastMessageID();
-
-    $db->updateIssue($user, $issue_id, array("message_id" => $messageID));
-  }
 }
 
 

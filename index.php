@@ -30,6 +30,7 @@ switch ($parts[0]) {
     if (count($parts) >= 2) {
 
       if ($_SERVER['REQUEST_METHOD'] == "POST") {
+        // UPDATE
         $issue->updateIssue("IJMacD@gmail.com", $parts[1], $_POST);
 
         if (isset($_SERVER['HTTP_REFERER'])) {
@@ -39,6 +40,7 @@ switch ($parts[0]) {
         }
       }
       else {
+        // GET
         $context = array("issue" => $issue->getIssue($parts[1]));
         viewIssue($context);
       }
@@ -135,19 +137,20 @@ function viewIssue($context) {
   renderHeader();
   ?>
 
-  <h1>
-  <?php
-    echo $issue['title'];
-    if($issue['status'] == "closed") {
-      echo ' <span class="status">(Closed)</span>';
-    } else if ($issue['status'] == "open") {
-      echo '<button class="btn btn-default btn-sm" data-toggle="#edit-title">Edit Title</button>';
-    }
-  ?>
-  </h1>
-
   <div class="row">
     <div class="col-md-9">
+
+      <h1 class="clearfix">
+      <?php
+        echo $issue['title'];
+        if($issue['status'] == "closed") {
+          echo ' <span class="badge badge-danger">Closed</span>';
+        } else if ($issue['status'] == "open") {
+          echo '<button class="btn btn-default btn-sm m-1 float-right" data-toggle="#edit-title">Edit Title</button>';
+        }
+      ?>
+      </h1>
+
       <form action="" method="post" style="display: none;" class="form-inline" id="edit-title">
         <input type="text" class="form-control m-1" style="flex-grow:1;" name="title" value="<?php echo $issue['title'] ?>" />
         <input type="submit" class="form-control btn btn-primary m-1" value="Save" />
@@ -185,23 +188,27 @@ function viewIssue($context) {
             <div class="details">
               <?php
                 if($entry['type'] == "UPDATE") {
-                  $updates = array();
-                  foreach($entry['value'] as $field => $value) {
-                    if ($field == "status") {
-                      echo '<p class="status-change '.$value.'">'.($value == "open" ? 'Opened Issue' : 'Closed Issue').'</p>';
+                  if(is_array($entry['value'])) {
+                    $updates = array();
+                    foreach($entry['value'] as $field => $value) {
+                      if ($field == "status") {
+                        echo '<p class="status-change '.$value.'">'.($value == "open" ? 'Opened Issue' : 'Closed Issue').'</p>';
+                      }
+                      else if ($field == "assignee") {
+                        $user = $db->getUser($value);
+                        echo '<p class="assignee-change">Assigned to: '.formatUser($user ? $user : $value).'</p>';
+                      }
+                      else if ($field == "assigned") {
+                        // ignore
+                      }
+                      else {
+                        $updates[] = "Set $field to '" . htmlspecialchars($value) . "'.";
+                      }
                     }
-                    else if ($field == "assignee") {
-                      $user = $db->getUser($value);
-                      echo '<p class="assignee-change">Assigned to: '.formatUser($user ? $user : $value).'</p>';
-                    }
-                    else if ($field == "assigned") {
-                      // ignore
-                    }
-                    else {
-                      $updates[] = "Set $field to '$value'.";
-                    }
+                    echo implode("<br>", $updates);
+                  } else {
+                    echo '<p class="text-muted">Unknown update</p>';
                   }
-                  echo implode("<br>", $updates);
                 } else if ($entry['type'] == "COMMENT") {
                   $parsedown = new Parsedown;
                   echo '<div class="message">'.$parsedown->text($entry['value']).'</div>';
@@ -238,21 +245,22 @@ function viewIssue($context) {
     </div>
 
     <div class="col-md-3">
-      <h2>Created By</h2>
-      <div class="clearfix">
+
+      <div class="box clearfix">
+        <h2>Created By</h2>
         <?php echo formatUser($issue['creator']) ?>
         <div class="date"><?php echo formatDate($issue['date']) ?></div>
       </div>
 
-      <h2>
-      Assigned To
-      <?php
-      if ($issue['status'] == "open") {
-        renderAssignment($issue);
-      }
-      ?>
-      </h2>
-      <div class="clearfix">
+      <div class="box clearfix">
+        <h2>
+        Assigned To
+        <?php
+        if ($issue['status'] == "open") {
+          renderAssignment($issue);
+        }
+        ?>
+        </h2>
         <?php
           if ($issue['assignee']) {
             echo formatUser($issue['assignee']);
@@ -261,39 +269,39 @@ function viewIssue($context) {
         ?>
       </div>
 
-      <h2>
-        Status
-        <?php
-          if ($issue['status'] == "open") {
-            $value = "closed";
-            $class = "btn-danger";
-            $label = "Close Issue";
-          }
-          else {
-            $value = "open";
-            $class = "btn-default";
-            $label = "Re-open Issue";
-          }
-        ?>
-        <form action="" method="post" style="display: inline;">
-          <input type="hidden" name="status" value="<?php echo $value ?>" />
-          <input type="submit" class="btn btn-sm <?php echo $class ?>" value="<?php echo $label ?>" />
-        </form>
-      </h2>
-      <div class="clearfix">
+      <div class="box clearfix">
+        <h2>
+          Status
+          <?php
+            if ($issue['status'] == "open") {
+              $value = "closed";
+              $class = "btn-danger";
+              $label = "Close Issue";
+            }
+            else {
+              $value = "open";
+              $class = "btn-default";
+              $label = "Re-open Issue";
+            }
+          ?>
+          <form action="" method="post" style="display: inline;">
+            <input type="hidden" name="status" value="<?php echo $value ?>" />
+            <input type="submit" class="btn btn-sm <?php echo $class ?>" value="<?php echo $label ?>" />
+          </form>
+        </h2>
         <?php echo $issue['status']; ?>
       </div>
 
-      <h2>
-        Deadline
-        <?php
-          if ($issue['status'] == "open") { ?>
-            <button class="btn btn-default btn-sm" data-toggle="#edit-deadline">Set Deadline</button>
+      <div class="box clearfix">
+        <h2>
+          Deadline
           <?php
-          }
-        ?>
-      </h2>
-      <div class="clearfix">
+            if ($issue['status'] == "open") { ?>
+              <button class="btn btn-default btn-sm" data-toggle="#edit-deadline">Set Deadline</button>
+            <?php
+            }
+          ?>
+        </h2>
         <?php
           $class = ($issue['status'] == "open" && $issue['deadline'] < time() ? "deadline-expired" : "");
           echo '<span class="'.$class.'">' . formatDate($issue['deadline']) . '</span>';
@@ -305,22 +313,53 @@ function viewIssue($context) {
       </div>
 
 
-      <h2>
-        Tags
-        <?php
-          if ($issue['status'] == "open") { ?>
-            <button class="btn btn-default btn-sm" data-toggle="#edit-tags">Edit Tags</button>
+      <div class="box clearfix">
+        <h2>
+          Tags
           <?php
-          }
-        ?>
-      </h2>
-      <div class="clearfix">
+            if ($issue['status'] == "open") { ?>
+              <button class="btn btn-default btn-sm" data-toggle="#edit-tags">Edit Tags</button>
+            <?php
+            }
+          ?>
+        </h2>
         <?php echo formatTags($issue['tags']) ?>
         <form action="" method="post" style="display: none;" id="edit-tags">
           <textarea class="form-control m-1" name="tags" style="font-family: monospace"><?php
             echo implode(", ", $issue['tags']);
           ?></textarea>
           <div class="note">Comma separated</div>
+          <input type="submit" class="btn btn-primary m-1" value="Save" />
+        </form>
+      </div>
+
+
+      <div class="box clearfix">
+        <h2>
+          Subscribers
+          <?php
+            if ($issue['status'] == "open") { ?>
+              <button class="btn btn-default btn-sm" data-toggle="#edit-subscribers">Add subcribers</button>
+            <?php
+            }
+          ?>
+        </h2>
+        <ul class="subscriber-list">
+          <?php
+
+          $notify = $db->getIssueNotify($issue['id']);
+
+          $flat_list = array();
+
+          foreach ($notify as $user) {
+            echo '<li>'.formatUser($user).'</li>';
+            $flat_list[] = formatUserAddress($user);
+          }
+          ?>
+        </ul>
+        <span class="text-muted">Users who will be notified of updates.</span>
+        <form action="" method="post" style="display: none;" id="edit-subscribers">
+          <input type="text" class="form-control m-1" name="subscribers" placeholder="Email addresses" />
           <input type="submit" class="btn btn-primary m-1" value="Save" />
         </form>
       </div>
@@ -369,6 +408,14 @@ function formatTags($tags) {
     $out[] = '<a href="'.URL_BASE.'/tag/'.$tag.'" class="badge" style="background: #'.$bg.'">'.$tag.'</a>';
   }
   return implode(" ", $out);
+}
+
+function formatUserAddress($user){
+  if (isset($user['name']) && $user['name']) {
+    return $user['name'] . " <" . $user['email'] . ">";
+  }
+
+  return $user['email'];
 }
 
 function renderHeader() {
@@ -422,10 +469,19 @@ function renderHeader() {
       font-size: 0.8em;
       color: #333;
     }
+    /*.box:hover,*/
     .description {
       border: 1px solid #999;
       box-shadow: 2px 2px 4px -2px;
       padding: 8px;
+      margin: 8px 0;
+    }
+    .box {
+      border: 1px solid #ccc;
+      box-shadow: 2px 2px 4px -4px;
+      padding: 8px;
+      margin: 8px 0;
+      transition: all 0.25s;
     }
     .history-entry,
     .edit-message {
@@ -475,6 +531,13 @@ function renderHeader() {
     }
     .deadline-expired {
       color: #c00;
+    }
+    .subscriber-list {
+      list-style: none;
+      padding: 0;
+    }
+    .subscriber-list li {
+      clear: both;
     }
     </style>
   </title>

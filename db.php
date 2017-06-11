@@ -22,7 +22,7 @@ class DB {
 
   function getIssues() {
 
-    $stmt = $this->db->query(_selectIssues() . " ORDER BY status DESC, assignee_email = '' DESC, created ASC");
+    $stmt = $this->db->query(_selectIssues() . " ORDER BY status DESC, assignee_email = '' DESC, deadline = '0000-00-00 00:00:00' ASC, deadline ASC, created ASC");
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
@@ -49,9 +49,15 @@ class DB {
   function updateIssue($user, $id, $fields) {
       $placeholders = array();
       $values = array();
+      $valid_fields = array("title", "description", "creator", "created", "status", "assignee", "assigned", "deadline", "tags", "message_id");
       foreach($fields as $name => $value) {
-          $placeholders[] = "$name = ?"; // TODO: Fix SQL injection
+        if (in_array($name, $valid_fields)) {
+          $placeholders[] = "$name = ?";
           $values[] = $value;
+        }
+      }
+      if(count($values) == 0) {
+        return;
       }
       $values[] = $id;
       $stmt = $this->db->prepare("UPDATE issues SET ".implode(",", $placeholders)." WHERE id = ?");
