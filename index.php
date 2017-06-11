@@ -12,8 +12,8 @@ date_default_timezone_set("Asia/Hong_Kong");
 
 define("URL_BASE", "/c/bugtracker2");
 
-require_once("db.php");
-require_once("Parsedown.php");
+require_once("./issue.php");
+require_once("./Parsedown.php");
 
 $base_len = strlen(URL_BASE);
 
@@ -30,7 +30,7 @@ switch ($parts[0]) {
     if (count($parts) >= 2) {
 
       if ($_SERVER['REQUEST_METHOD'] == "POST") {
-        updateIssue($parts[1], $_POST);
+        $issue->updateIssue("IJMacD@gmail.com", $parts[1], $_POST);
 
         if (isset($_SERVER['HTTP_REFERER'])) {
           redirect($_SERVER['HTTP_REFERER']);
@@ -39,7 +39,7 @@ switch ($parts[0]) {
         }
       }
       else {
-        $context = array("issue" => getIssue($parts[1]));
+        $context = array("issue" => $issue->getIssue($parts[1]));
         viewIssue($context);
       }
     }
@@ -49,7 +49,7 @@ switch ($parts[0]) {
     break;
   case "tag":
     if (count($parts) >= 2) {
-      $context = array("title" => "Tag: ".$parts[1], "issues" => getIssuesByTag($parts[1]));
+      $context = array("title" => "Tag: ".$parts[1], "issues" => $issue->getIssuesByTag($parts[1]));
       viewIndex($context);
     }
     else {
@@ -58,7 +58,7 @@ switch ($parts[0]) {
     break;
   case "user":
     if (count($parts) >= 2) {
-      $context = array("title" => "User: ".$parts[1], "issues" => getIssuesByUser($parts[1]));
+      $context = array("title" => "User: ".$parts[1], "issues" => $issue->getIssuesByUser($parts[1]));
       viewIndex($context);
     }
     else {
@@ -69,99 +69,12 @@ switch ($parts[0]) {
     // methodUnavailable();
     // break;
   default:
-    $context = array("issues" => getIssues());
+    $context = array("issues" => $issue->getIssues());
     viewIndex($context);
 }
 
 function methodUnavailable() {
   die("Method Unavilable");
-}
-
-function getIssues() {
-  $db = dbConnect();
-
-  $issues = dbGetIssues($db);
-
-  foreach($issues as &$issue) {
-    normalizeIssue($issue);
-  }
-
-  return $issues;
-}
-
-function getIssue($id) {
-  $db = dbConnect();
-
-  $issue = dbGetIssue($db, $id);
-
-  normalizeIssue($issue);
-
-  $history = dbGetIssueHistory($db, $id);
-  foreach($history as &$entry){
-    $entry['user'] = array(
-      "email" => $entry['user_email'],
-      "name" => $entry['user_name']
-    );
-
-    if ($entry['type'] == "UPDATE") {
-      $entry['value'] = unserialize($entry['value']);
-    }
-  }
-  $issue['history'] = $history;
-
-  return $issue;
-}
-
-function getIssuesByTag($tag) {
-  $issues = getIssues();
-  $out = array();
-  foreach($issues as $issue) {
-    if (in_array($tag, $issue['tags'])) {
-      $out[] = $issue;
-    }
-  }
-  return $out;
-}
-
-function getIssuesByUser($user) {
-  $issues = getIssues();
-  $out = array();
-  $_user = strtolower($user);
-  foreach($issues as $issue) {
-    if (strtolower($issue['creator']['email']) == $_user ||
-        ($issue['assignee'] && strtolower($issue['assignee']['email']) == $_user)) {
-      $out[] = $issue;
-    }
-  }
-  return $out;
-}
-
-function updateIssue($id, $fields) {
-  $db = dbConnect();
-
-  $user = "IJMacD@gmail.com";
-
-  if (isset($fields['action'])) {
-    $action = $fields['action'];
-    unset($fields['action']);
-
-    if ($action == "COMMENT") {
-      dbInsertIssueHistory($db, $user, $id, $action, $fields['message']);
-    }
-
-    return;
-  }
-
-  if (isset($fields['assignee'])) {
-    $fields['assigned'] = date('c');
-  }
-
-  dbUpdateIssue($db, $user, $id, $fields);
-}
-
-function getUser ($email) {
-  $db = dbConnect();
-  return dbGetUser($db, $email);
 }
 
 function viewIndex($context) {
@@ -177,7 +90,7 @@ function viewIndex($context) {
   <table class="table">
     <thead>
       <tr>
-        <th>Title</th><th>Status</th><th>Created</th><th>Assigned To</th><th>Deadline</th><th>Tags</th>
+        <th>Title</th><th>Status</th><th>Created By</th><th>Assigned To</th><th>Deadline</th><th>Tags</th>
       </tr>
     </thead>
     <tbody>
@@ -216,6 +129,8 @@ function viewIndex($context) {
 }
 
 function viewIssue($context) {
+  global $db;
+
   $issue = $context['issue'];
   renderHeader();
   ?>
@@ -276,7 +191,7 @@ function viewIssue($context) {
                       echo '<p class="status-change '.$value.'">'.($value == "open" ? 'Opened Issue' : 'Closed Issue').'</p>';
                     }
                     else if ($field == "assignee") {
-                      $user = getUser($value);
+                      $user = $db->getUser($value);
                       echo '<p class="assignee-change">Assigned to: '.formatUser($user ? $user : $value).'</p>';
                     }
                     else if ($field == "assigned") {
@@ -612,20 +527,4 @@ function redirect ($url) {
   header("HTTP/1.1 301 Moved Temporarily");
   header("Location: ".$url);
   exit;
-}
-
-function normalizeIssue (&$issue) {
-    $issue['creator'] = array('email' => $issue['creator_email'], "name" => $issue['creator_name']);
-
-    if ($issue['assignee_email']) {
-      $issue['assignee'] = array('email' => $issue['assignee_email'], "name" => $issue['assignee_name']);
-    }
-    else {
-      $issue['assignee'] = null;
-    }
-
-    $issue['tags'] = explode(",", $issue['tags']);
-    foreach($issue['tags'] as &$tag) {
-      $tag = trim($tag);
-    }
 }
