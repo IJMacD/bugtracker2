@@ -42,6 +42,12 @@ switch ($parts[0]) {
       else {
         // GET
         $context = array("issue" => $issue->getIssue($parts[1]));
+
+        if(!$context['issue']) {
+          header("HTTP/1.1 404 Not Found");
+          exit;
+        }
+
         viewIssue($context);
       }
     }

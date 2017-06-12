@@ -90,9 +90,13 @@ class DB {
     return $stmt->fetchALL(PDO::FETCH_ASSOC);
   }
 
-  function insertIssueNotify($user, $id, $enabled) {
-    $stmt = $this->db->prepare("INSERT INTO notify (issue_id, user, enabled) VALUES (?, ?, ?)");
-    $stmt->execute(array($id, $user, $enabled));
+  function insertIssueNotify($id, $user, $enabled) {
+    try {
+      $stmt = $this->db->prepare("INSERT INTO notify (issue_id, user, enabled) VALUES (?, ?, ?)");
+      $stmt->execute(array($id, $user, $enabled));
+    } catch (Exception $e) {
+      // Probably duplicate key
+    }
   }
 
   function getUsers() {
@@ -112,6 +116,16 @@ class DB {
     $stmt->execute(array($email));
 
     return $stmt->fetch(PDO::FETCH_ASSOC);
+  }
+
+  function getDefaultNotify() {
+    $stmt = $this->db->query("SELECT
+      email
+      FROM users
+      WHERE notify_new_issues = 1
+      ORDER BY email");
+
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
   }
 }
 

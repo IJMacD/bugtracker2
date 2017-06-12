@@ -1,6 +1,5 @@
 <?php
 
-require_once('./session.php');
 require_once('./db.php');
 require_once('./mail.php');
 
@@ -22,6 +21,10 @@ class Issue {
     global $db;
 
     $issue = $db->getIssue($id);
+
+    if (!$issue) {
+      return false;
+    }
 
     normalizeIssue($issue);
 
@@ -111,7 +114,7 @@ class Issue {
     // // Required
     // $title = $options['title'];
     // $description = $options['description'];
-    // $creator = $options['creator'];
+    $creator = $options['creator'];
     // $created = time();
 
     // // Optional
@@ -122,7 +125,7 @@ class Issue {
     // $tags = $options['tags'];
     // $messageID = $options['messageID'];
 
-    // $notify = $options['notify']; // array
+    $notify = $options['notify']; // array
 
     // $fileds => array(
     //   "title" =>        $title,
@@ -141,7 +144,7 @@ class Issue {
     $issue_id = $db->insertIssue($user, $options);
 
     $data = serialize($options);
-    $db->insertIssueHistory($user, $time, $issue_id, "CREATE", $data);
+    $db->insertIssueHistory($user, $issue_id, "CREATE", $data);
 
     // Make sure the creator is in the notify list.
     // Duplicates are OK here because they are unique filtered later.
@@ -155,6 +158,7 @@ class Issue {
       $db->insertIssueNotify($issue_id, $email, true);
     }
 
+    return $issue_id;
   }
 
   function replyIssue($user, $issue_id, $message) {
@@ -162,6 +166,16 @@ class Issue {
 
     $db->insertIssueHistory($user, $issue_id, "COMMENT", $message);
 
+  }
+
+  function addNotify($id, $list) {
+    global $db;
+
+    if(is_array($list)) {
+      foreach($list as $email) {
+        $db->insertIssueNotify($id, $email, true);
+      }
+    }
   }
 
 }
