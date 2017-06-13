@@ -19,13 +19,22 @@ $base_len = strlen(URL_BASE);
 
 if (strncmp(URL_BASE, $_SERVER['REQUEST_URI'], $base_len) == 0) {
   $tail = substr($_SERVER['REQUEST_URI'], $base_len + 1);
-  $parts = explode("/", $tail);
-  for($i = 0; $i < count($parts); $i++){
-    $parts[$i] = urldecode($parts[$i]);
+  $query_index = strpos($tail, "?");
+  if($query_index != false) {
+    $tail = substr($tail, 0, $query_index);
+  }
+  $parts = array();
+  $raw_parts = explode("/", $tail);
+  for($i = 0; $i < count($raw_parts); $i++){
+    $p = urldecode($raw_parts[$i]);
+    if(strlen($p) > 0) {
+      $parts[$i] = $p;
+    }
   }
 }
 
-switch ($parts[0]) {
+
+switch (count($parts) > 0 ? $parts[0] : "") {
   case "issue":
     if (count($parts) >= 2) {
 
@@ -39,12 +48,26 @@ switch ($parts[0]) {
           redirect(URL_BASE . "/issue/" . $parts[1]);
         }
       }
+      else if ($parts[1] == "new") {
+        $context = array();
+
+        if(isset($_GET['tags'])) {
+          $context['tags'] = explode(",", urldecode($_GET['tags']));
+        }
+
+        if(isset($_GET['notify'])) {
+          $context['notify'] = explode(",", urldecode($_GET['notify']));
+        }
+
+        viewNewIssue($context);
+      }
       else {
         // GET
         $context = array("issue" => $issue->getIssue($parts[1]));
 
         if(!$context['issue']) {
           header("HTTP/1.1 404 Not Found");
+          echo "Issue not found";
           exit;
         }
 
@@ -52,12 +75,35 @@ switch ($parts[0]) {
       }
     }
     else {
-      methodUnavailable();
+      if ($_SERVER['REQUEST_METHOD'] == "POST") {
+        // Create issue
+
+        if(!isset($_POST['title']) || !isset($_POST['description'])) {
+          // $form->addError()
+          redirect(URL_BASE . "/issue/new");
+        }
+
+        $options = array(
+          "title" => $_POST['title'],
+          "description" => $_POST['description'],
+          "tags" => $_POST['tags'],
+        );
+
+        $id = $issue->addIssue("IJMacD@gmail.com", $options);
+
+        redirect(URL_BASE . "/issue/" . $id);
+      } else {
+        redirect(URL_BASE);
+      }
     }
     break;
   case "tag":
     if (count($parts) >= 2) {
-      $context = array("title" => "Tag: ".$parts[1], "issues" => $issue->getIssuesByTag($parts[1]));
+      $context = array(
+        "title" => "Tag: ".$parts[1],
+        "issues" => $issue->getIssuesByTag($parts[1]),
+        "new_link" => "?tags=".urlencode($parts[1]),
+      );
       viewIndex($context);
     }
     else {
@@ -66,7 +112,11 @@ switch ($parts[0]) {
     break;
   case "user":
     if (count($parts) >= 2) {
-      $context = array("title" => "User: ".$parts[1], "issues" => $issue->getIssuesByUser($parts[1]));
+      $context = array(
+        "title" => "User: ".$parts[1],
+        "issues" => $issue->getIssuesByUser($parts[1]),
+        "new_link" => "?notify=".urlencode($parts[1]),
+      );
       viewIndex($context);
     }
     else {
@@ -88,11 +138,17 @@ function methodUnavailable() {
 function viewIndex($context) {
   $title = isset($context['title']) ? $context['title'] : "BugTracker";
   renderHeader();
+
+  $new_link = URL_BASE . "/issue/new";
+
+  if(isset($context['new_link'])) {
+    $new_link .= $context['new_link'];
+  }
   ?>
 
   <h1>
     <?php echo $title ?>
-    <button class="btn btn-primary">New Issue</button>
+    <a class="btn btn-primary" href="<?php echo $new_link; ?>">New Issue</a>
   </h1>
 
   <table class="table">
@@ -358,12 +414,12 @@ function viewIssue($context) {
           $flat_list = array();
 
           foreach ($notify as $user) {
-            echo '<li>'.formatUser($user).'</li>';
+            echo '<li>'.formatUser($user).'<button class="btn btn-outline-danger btn-sm m-1">Remove</button></li>';
             $flat_list[] = formatUserAddress($user);
           }
           ?>
         </ul>
-        <span class="text-muted">Users who will be notified of updates.</span>
+        <small class="text-muted">Users who will be notified of updates.</small>
         <form action="" method="post" style="display: none;" id="edit-subscribers">
           <input type="text" class="form-control m-1" name="subscribers" placeholder="Email addresses" />
           <input type="submit" class="btn btn-primary m-1" value="Save" />
@@ -372,6 +428,52 @@ function viewIssue($context) {
 
     </div>
   </div>
+
+  <?php
+  renderFooter();
+}
+
+
+
+function viewNewIssue($context) {
+  global $db;
+
+  renderHeader();
+
+  $tags = "";
+
+  if(isset($context['tags'])) {
+    $tags = htmlspecialchars(implode(", ", $context['tags']));
+  }
+
+  $notify = "";
+
+  if(isset($context['notify'])) {
+    $notify = htmlspecialchars(implode(", ", $context['notify']));
+  }
+  ?>
+
+  <h1>Create Issue</h1>
+
+  <form action="<?php echo URL_BASE . "/issue/"; ?>" method="post">
+    <div class="form-group">
+      <label for="title">Title</label>
+      <input type="text" class="form-control" id="title" name="title" aria-describedby="titleHelp" placeholder="Enter title" required>
+      <small id="titleHelp" class="form-text text-muted">Short descriptive title of issue.</small>
+    </div>
+    <div class="form-group">
+      <label for="description">Description</label>
+      <textarea class="form-control" id="description" name="description" rows="6" aria-describedby="descriptionHelp" required></textarea>
+      <small id="descriptionHelp" class="form-text text-muted">Explain the issue with more detail. You can use formatting such as: *<em>emphasis</em>*, **<b>bold</b>**, and links.</small>
+    </div>
+    <div class="form-group">
+      <label for="title">Tags <em class="text-muted">(Optional)</em></label>
+      <input type="text" class="form-control" id="tags" name="tags" aria-describedby="tagsHelp" placeholder="Enter tags" value="<?php echo $tags; ?>">
+      <small id="tagsHelp" class="form-text text-muted">You can added comma separated tags to help searching/categorising issues.</small>
+    </div>
+    <input type="hidden" name="notify" value="<?php echo $notify; ?>" />
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
 
   <?php
   renderFooter();

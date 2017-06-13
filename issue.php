@@ -114,7 +114,8 @@ class Issue {
     // // Required
     // $title = $options['title'];
     // $description = $options['description'];
-    $creator = $options['creator'];
+    $creator = isset($options['creator']) ? $options['creator'] : $user;
+    $options['creator'] = $creator;
     // $created = time();
 
     // // Optional
@@ -125,9 +126,9 @@ class Issue {
     // $tags = $options['tags'];
     // $messageID = $options['messageID'];
 
-    $notify = $options['notify']; // array
+    $notify = isset($options['notify']) ? $options['notify'] : array(); // array
 
-    // $fileds => array(
+    // $fields => array(
     //   "title" =>        $title,
     //   "description" =>  $description,
     //   "creator" =>      $creator,
