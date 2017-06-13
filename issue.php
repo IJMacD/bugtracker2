@@ -195,10 +195,17 @@ function normalizeIssue (&$issue) {
       $issue['assignee'] = null;
     }
 
-    $issue['tags'] = explode(",", $issue['tags']);
-    foreach($issue['tags'] as &$tag) {
-      $tag = trim($tag);
-    }
+    $issue['tags'] = array_filter(
+      array_map(
+        function($t) {
+          return trim($t);
+        },
+        explode(",", $issue['tags'])
+      ),
+      function ($t) {
+        return strlen($t) > 0;
+      }
+    );
 }
 
 
