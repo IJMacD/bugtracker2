@@ -5,10 +5,10 @@ require_once('./mail.php');
 
 class Issue {
 
-  function getIssues() {
+  function getIssues($options=array()) {
     global $db;
 
-    $issues = $db->getIssues();
+    $issues = $db->getIssues($options);
 
     foreach($issues as &$issue) {
       normalizeIssue($issue);
@@ -44,8 +44,8 @@ class Issue {
     return $issue;
   }
 
-  function getIssuesByTag($tag) {
-    $issues = $this->getIssues();
+  function getIssuesByTag($tag, $options) {
+    $issues = $this->getIssues($options);
     $out = array();
     foreach($issues as $issue) {
       if (in_array($tag, $issue['tags'])) {
@@ -55,8 +55,8 @@ class Issue {
     return $out;
   }
 
-  function getIssuesByUser($user) {
-    $issues = $this->getIssues();
+  function getIssuesByUser($user, $options) {
+    $issues = $this->getIssues($options);
     $out = array();
     $_user = strtolower($user);
     foreach($issues as $issue) {

@@ -20,9 +20,25 @@ class DB {
     return $this->db;
   }
 
-  function getIssues() {
+  function getIssues($options) {
+    $where = "";
+    $values = array();
 
-    $stmt = $this->db->query(_selectIssues() . " ORDER BY status DESC, assignee_email = '' DESC, deadline = '0000-00-00 00:00:00' ASC, deadline ASC, created ASC");
+    if(isset($options['status'])) {
+      if ($options['status'] == "unassigned") {
+        $where = " WHERE status = 'open' AND assignee = ''";
+      }
+      else {
+        $where = " WHERE status = ?";
+        $values[] = $options['status'];
+      }
+    }
+
+    $order = " ORDER BY status DESC, assignee_email = '' DESC, deadline = '0000-00-00 00:00:00' ASC, deadline ASC, created ASC";
+
+    $stmt = $this->db->prepare(_selectIssues() . $where . $order);
+
+    $stmt->execute($values);
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }

@@ -20,7 +20,7 @@ $base_len = strlen(URL_BASE);
 if (strncmp(URL_BASE, $_SERVER['REQUEST_URI'], $base_len) == 0) {
   $tail = substr($_SERVER['REQUEST_URI'], $base_len + 1);
   $query_index = strpos($tail, "?");
-  if($query_index != false) {
+  if($query_index !== false) {
     $tail = substr($tail, 0, $query_index);
   }
   $parts = array();
@@ -98,11 +98,16 @@ switch (count($parts) > 0 ? $parts[0] : "") {
     break;
   case "tag":
     if (count($parts) >= 2) {
+      $options = array();
       $context = array(
         "title" => "Tag: ".$parts[1],
-        "issues" => $issue->getIssuesByTag($parts[1]),
         "new_link" => "?tags=".urlencode($parts[1]),
       );
+      if(isset($_GET['status'])) {
+        $options['status'] = $_GET['status'];
+        $context['title'] .= ", Status: ".htmlspecialchars($_GET['status']);
+      }
+      $context["issues"] = $issue->getIssuesByTag($parts[1], $options);
       viewIndex($context);
     }
     else {
@@ -111,11 +116,16 @@ switch (count($parts) > 0 ? $parts[0] : "") {
     break;
   case "user":
     if (count($parts) >= 2) {
+      $options = array();
       $context = array(
         "title" => "User: ".$parts[1],
-        "issues" => $issue->getIssuesByUser($parts[1]),
         "new_link" => "?notify=".urlencode($parts[1]),
       );
+      if(isset($_GET['status'])) {
+        $options['status'] = $_GET['status'];
+        $context['title'] .= ", Status: ".htmlspecialchars($_GET['status']);
+      }
+      $context["issues"] = $issue->getIssuesByUser($parts[1], $options);
       viewIndex($context);
     }
     else {
@@ -126,7 +136,13 @@ switch (count($parts) > 0 ? $parts[0] : "") {
     // methodUnavailable();
     // break;
   default:
-    $context = array("issues" => $issue->getIssues());
+    $options = array();
+    $context = array();
+    if(isset($_GET['status'])) {
+      $options['status'] = $_GET['status'];
+      $context['title'] = "Status: ".htmlspecialchars($_GET['status']);
+    }
+    $context["issues"] = $issue->getIssues($options);
     viewIndex($context);
 }
 
@@ -162,7 +178,14 @@ function viewIndex($context) {
         ?>
         <tr class="status-<?php echo $issue['status'] ?> <?php echo $issue['assignee'] ? "status-assigned" : "status-unassigned" ?>">
           <td><a href="<?php echo URL_BASE ?>/issue/<?php echo $issue['id'] ?>"><?php echo $issue['title'] ?></a></td>
-          <td class="status"><?php echo $issue['status']; if($issue['status'] == "open" && !$issue['assignee']) { echo ", unassigned"; } ?></td>
+          <td class="status">
+            <?php
+              echo '<a href="?status='.$issue['status'].'">'.$issue['status'].'</a>';
+              if($issue['status'] == "open" && !$issue['assignee']) {
+                echo ', <a href="?status=unassigned">unassigned</a>';
+              }
+            ?>
+          </td>
           <td>
             <?php echo formatUser($issue['creator']) ?>
             <div class="date"><?php echo formatDate($issue['date']) ?></div>
