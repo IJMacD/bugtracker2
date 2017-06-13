@@ -37,9 +37,14 @@ class DB {
   }
 
   function insertIssue($user, $fields) {
-      $stmt = $this->db->prepare("INSERT INTO issues (title, description, creator) VALUES (?,?,?)");
+      $stmt = $this->db->prepare("INSERT INTO issues (title, description, creator, tags) VALUES (?,?,?,?)");
 
-      $stmt->execute(array($fields['title'], $fields['description'], $fields['creator']));
+      $stmt->execute(array(
+        $fields['title'],
+        $fields['description'],
+        $fields['creator'],
+        isset($fields['tags']) ? $fields['tags'] : "",
+      ));
 
       $id = $this->db->lastInsertId();
 

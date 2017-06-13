@@ -2,8 +2,8 @@
 
 // API:
 //
-// /bugtracker
-// /bugtracker/issue    GET   POST
+// /bugtracker          GET
+// /bugtracker/issue          POST
 // /bugtracker/issue/35 GET   POST
 // /bugtracker/project  GET   POST
 // /bugtracker/user     GET   POST
@@ -32,7 +32,6 @@ if (strncmp(URL_BASE, $_SERVER['REQUEST_URI'], $base_len) == 0) {
     }
   }
 }
-
 
 switch (count($parts) > 0 ? $parts[0] : "") {
   case "issue":
@@ -86,7 +85,7 @@ switch (count($parts) > 0 ? $parts[0] : "") {
         $options = array(
           "title" => $_POST['title'],
           "description" => $_POST['description'],
-          "tags" => $_POST['tags'],
+          "tags" => explode(",", $_POST['tags']),
         );
 
         $id = $issue->addIssue("IJMacD@gmail.com", $options);

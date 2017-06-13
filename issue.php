@@ -123,7 +123,7 @@ class Issue {
     // $assignee = $options['assignee'];
     // $assigned = time();
     // $deadline = $options['deadline'];
-    // $tags = $options['tags'];
+    $tags = isset($options['tags']) ? $options['tags'] : array();
     // $messageID = $options['messageID'];
 
     $notify = isset($options['notify']) ? $options['notify'] : array(); // array
@@ -141,6 +141,8 @@ class Issue {
     //   "tags" =>         $tags,
     //   "messageID" =>    $messageID,
     // );
+
+    $options['tags'] = implode(",", $tags);
 
     $issue_id = $db->insertIssue($user, $options);
 

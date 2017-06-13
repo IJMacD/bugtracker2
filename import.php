@@ -58,7 +58,11 @@ function importMessages () {
 
                 if (is_user($users, $from_email)) {
 
-                    $title = imap_utf8($overview[0]->subject);
+                    $raw_title = imap_utf8($overview[0]->subject);
+
+                    // Parse tags in subject [Tag][Multiple, Tags]
+                    $tags = parseTags($raw_title);
+                    $title = stripTags($raw_title);
 
                     $body = getPlainText($inbox, $email_number);
 
@@ -119,9 +123,9 @@ function importMessages () {
                             "description" => $body,
                             "creator" => $from_email,
                             "notify" => $notify_list,
+                            "tags" => $tags,
                         );
 
-                        // print_r($fields);
                         $id = $issue->addIssue($from_email, $fields);
 
                         $inserted++;
@@ -138,9 +142,9 @@ function importMessages () {
                                 $reply_to[] = $user['name'] . " <" . $user['email'] . ">";
                             }
 
-                            $reply_subject = "Re: " . $title;
+                            $reply_subject = "Re: " . $raw_title;
 
-                            $url = "http://localhost/c/bugtracker2/issue/$id";
+                            $url = "http://192.168.0.2/c/bugtracker2/issue/$id";
                             // Including a copy in the reply causes jank when gmail tries to quote it.
                             $reply_body =
                                 "<p><a href=\"$url\">Issue</a> has been created. You will be notified when there are any updates.</p>\n\n"
@@ -242,4 +246,24 @@ function getPlainText($imap_stream, $msg_number) {
             $part_index++;
         }
     }
+}
+
+// Parse tags in the form of [Tag][Multiple, Tags]
+function parseTags ($string) {
+    preg_match_all("/\[([^]]*)\]/", $string, $matches);
+
+    $out = array();
+    foreach($matches[1] as $match) {
+        $subtags = explode(",", $match);
+        foreach($subtags as $tag) {
+            $out[] = trim($tag);
+        }
+    }
+
+    return $out;
+}
+
+// Strip tags in the form of [Tag][Multiple, Tags]
+function stripTags($string) {
+    return preg_replace("/\[[^]]*\]/", "", $string);
 }
