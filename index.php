@@ -12,8 +12,8 @@ date_default_timezone_set("Asia/Hong_Kong");
 
 define("URL_BASE", "/c/bugtracker2");
 
-require_once("./issue.php");
-require_once("./Parsedown.php");
+require_once("./include/issue.php");
+require_once("./include/Parsedown.php");
 
 $base_len = strlen(URL_BASE);
 

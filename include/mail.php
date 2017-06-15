@@ -52,7 +52,7 @@ class Mail {
                 $this->mail->AddAddress($address->mailbox . "@" . $address->host, $address->personal);
             }
         } else {
-            echo 'No \'To\' addresses parsed';
+            echo "No 'To' addresses parsed";
             return;
         }
 

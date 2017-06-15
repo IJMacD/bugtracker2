@@ -1,10 +1,11 @@
 <?php
 
-require_once("db.php");
+require_once("./include/db.php");
 
-$db = dbConnect();
-$notify = dbGetIssueHistory($db, 3);
+$notify = $db->getIssueHistory(3);
 
-echo '<pre>';
+if (PHP_SAPI !== "cli") {
+    echo '<pre>';
+}
+
 var_dump($notify);
-echo '</pre>';

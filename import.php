@@ -1,8 +1,8 @@
 <?php
 
-require_once("./issue.php");
-require_once("./mail.php");
-require_once("./db.php");
+require_once("./include/issue.php");
+require_once("./include/mail.php");
+require_once("./include/db.php");
 
 // If we're in the browser make sure output is formatted
 if (PHP_SAPI !== "cli") {
@@ -229,12 +229,21 @@ function formatAddr($addr) {
 
 function getPlainText($imap_stream, $msg_number) {
     $struct = imap_fetchstructure($imap_stream, $msg_number);
+
+    // type 0: TEXT
+    // type 1: MULTIPART
     if($struct->type == 1) {
         $part_index = 1;
+
         foreach($struct->parts as $part) {
             if($part->type == 0 && $part->subtype == "PLAIN") {
                 $body = imap_fetchbody($imap_stream, $msg_number, $part_index);
 
+                // encoding 0: 7bit
+                // encoding 1: 8bit
+                // encoding 2: binary
+                // encoding 3: base64
+                // encoding 4: quoted printable
                 if($part->encoding == 3) {
                     $body = base64_decode($body);
                 } else if ($part->encoding == 4) {
