@@ -12,6 +12,7 @@ date_default_timezone_set("Asia/Hong_Kong");
 
 define("URL_BASE", "/c/bugtracker2");
 
+require_once("./include/session.php");
 require_once("./include/issue.php");
 require_once("./include/Parsedown.php");
 
@@ -34,6 +35,12 @@ if (strncmp(URL_BASE, $_SERVER['REQUEST_URI'], $base_len) == 0) {
 }
 
 switch (count($parts) > 0 ? $parts[0] : "") {
+  case "login":
+    $context = array();
+    $context["username_error"] = $form->error("username");
+    $context["password_error"] = $form->error("password");
+    viewLogin($context);
+    break;
   case "issue":
     if (count($parts) >= 2) {
 
@@ -135,6 +142,16 @@ switch (count($parts) > 0 ? $parts[0] : "") {
   case "project":
     // methodUnavailable();
     // break;
+  case "process":
+    if(count($parts) >= 2) {
+      switch($parts[1]) {
+        case "login":
+          processLogin();
+          break;
+      }
+      break;
+    }
+    // no break
   default:
     $options = array();
     $context = array();
@@ -143,6 +160,8 @@ switch (count($parts) > 0 ? $parts[0] : "") {
       $context['title'] = "Status: ".htmlspecialchars($_GET['status']);
     }
     $context["issues"] = $issue->getIssues($options);
+    $context["logged_in"] = $session->logged_in;
+    $context["username"] = $session->username;
     viewIndex($context);
 }
 
@@ -165,6 +184,15 @@ function viewIndex($context) {
     <?php echo $title ?>
     <a class="btn btn-primary" href="<?php echo $new_link; ?>">New Issue</a>
   </h1>
+
+  <?php
+  if($context["logged_in"]) {
+    echo '<p>Logged in as '.$context["username"].'</p>';
+  }
+  else {
+    echo '<a href="'.URL_BASE.'/login">Login</a>';
+  }
+  ?>
 
   <table class="table">
     <thead>
@@ -455,8 +483,6 @@ function viewIssue($context) {
   renderFooter();
 }
 
-
-
 function viewNewIssue($context) {
   global $db;
 
@@ -495,6 +521,34 @@ function viewNewIssue($context) {
     </div>
     <input type="hidden" name="notify" value="<?php echo $notify; ?>" />
     <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+
+  <?php
+  renderFooter();
+}
+
+function viewLogin($context) {
+  renderHeader();
+  ?>
+
+  <form action="<?php echo URL_BASE . "/process/login"; ?>" method="post">
+    <div class="form-group <?php echo $context['username_error'] ? "has-danger" : ""; ?>">
+      <label for="username">Username</label>
+      <input type="text" class="form-control" id="username" name="username" placeholder="Enter username" required>
+      <small><?php echo $context['username_error']; ?></small>
+    </div>
+    <div class="form-group <?php echo $context['password_error'] ? "has-danger" : ""; ?>">
+      <label for="password">password</label>
+      <input type="password" class="form-control" id="password" name="password" required>
+      <small><?php echo $context['password_error']; ?></small>
+    </div>
+    <div class="form-check">
+      <label class="form-check-label" for="remember">
+        <input type="checkbox" class="form-check-input" id="remember" name="remember">
+        Remember Me
+      </label>
+    </div>
+    <button type="submit" class="btn btn-primary">Login</button>
   </form>
 
   <?php
@@ -720,4 +774,21 @@ function redirect ($url) {
   header("HTTP/1.1 301 Moved Temporarily");
   header("Location: ".$url);
   exit;
+}
+
+function processLogin() {
+  global $session, $form;
+
+  $retval = $session->login($_POST['username'], $_POST['password'], isset($_POST['remember']));
+
+  /* Login successful */
+  if($retval){
+      redirect(URL_BASE);
+  }
+  /* Login failed */
+  else{
+      $_SESSION['value_array'] = $_POST;
+      $_SESSION['error_array'] = $form->getErrorArray();
+      redirect($session->referrer);
+  }
 }
