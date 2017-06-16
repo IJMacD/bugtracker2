@@ -249,6 +249,13 @@ class Session
    }
 
    /**
+    * Determine if user can edit issues
+    */
+   function canEdit() {
+     return $this->logged_in && $this->userinfo['can_edit_issues'];
+   }
+
+   /**
     * generateRandID - Generates a string made up of randomized
     * letters (lower and upper case) and digits and returns
     * the md5 hash of it to be used as a userid.

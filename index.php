@@ -46,7 +46,14 @@ switch (count($parts) > 0 ? $parts[0] : "") {
 
       if ($_SERVER['REQUEST_METHOD'] == "POST") {
         // UPDATE
-        $issue->updateIssue("IJMacD@gmail.com", $parts[1], $_POST);
+        if(!$session->canEdit()) {
+          header("HTTP/1.1 403 Forbidden");
+          echo "403 Forbidden";
+          // redirect(URL_BASE);
+          exit;
+        }
+
+        $issue->updateIssue($session->username, $parts[1], $_POST);
 
         if (isset($_SERVER['HTTP_REFERER'])) {
           redirect($_SERVER['HTTP_REFERER']);
@@ -84,6 +91,13 @@ switch (count($parts) > 0 ? $parts[0] : "") {
       if ($_SERVER['REQUEST_METHOD'] == "POST") {
         // Create issue
 
+        if(!$session->canEdit()) {
+          header("HTTP/1.1 403 Forbidden");
+          echo "403 Forbidden";
+          // redirect(URL_BASE);
+          exit;
+        }
+
         if(!isset($_POST['title']) || !isset($_POST['description'])) {
           // $form->addError()
           redirect(URL_BASE . "/issue/new");
@@ -95,7 +109,7 @@ switch (count($parts) > 0 ? $parts[0] : "") {
           "tags" => explode(",", $_POST['tags']),
         );
 
-        $id = $issue->addIssue("IJMacD@gmail.com", $options);
+        $id = $issue->addIssue($session->username, $options);
 
         redirect(URL_BASE . "/issue/" . $id);
       } else {
@@ -171,6 +185,7 @@ function methodUnavailable() {
 }
 
 function viewIndex($context) {
+  global $session;
   $title = isset($context['title']) ? $context['title'] : "BugTracker";
   renderHeader();
 
@@ -183,7 +198,13 @@ function viewIndex($context) {
 
   <h1>
     <?php echo $title ?>
-    <a class="btn btn-primary" href="<?php echo $new_link; ?>">New Issue</a>
+    <?php
+    if ($session->canEdit()) {
+    ?>
+      <a class="btn btn-primary" href="<?php echo $new_link; ?>">New Issue</a>
+    <?php
+    }
+    ?>
   </h1>
 
   <table class="table">
@@ -214,7 +235,7 @@ function viewIndex($context) {
             if ($issue['assignee']) {
               echo formatUser($issue['assignee']);
               echo '<div class="date">'. formatDate($issue['assigned']) .'</div>';
-            } else if ($issue['status'] == "open") {
+            } else if ($issue['status'] == "open" && $session->canEdit()) {
               renderAssignment($issue, true);
             }
           ?></td>
@@ -235,7 +256,7 @@ function viewIndex($context) {
 }
 
 function viewIssue($context) {
-  global $db;
+  global $session, $db;
 
   $issue = $context['issue'];
   renderHeader();
@@ -249,7 +270,7 @@ function viewIssue($context) {
         echo $issue['title'];
         if($issue['status'] == "closed") {
           echo ' <span class="badge badge-danger">Closed</span>';
-        } else if ($issue['status'] == "open") {
+        } else if ($issue['status'] == "open" && $session->canEdit()) {
           echo '<button class="btn btn-default btn-sm m-1 float-right" data-toggle="#edit-title">Edit Title</button>';
         }
       ?>
@@ -264,7 +285,7 @@ function viewIssue($context) {
         $parsedown = new Parsedown();
         echo $parsedown->text($issue['description']);
 
-        if ($issue['status'] == "open") {
+        if ($issue['status'] == "open" && $session->canEdit()) {
         ?>
           <button class="btn btn-default btn-sm float-right" data-toggle="#edit-description">Edit Description</button>
           <form action="" method="post" id="edit-description" style="display: none;" >
@@ -329,12 +350,11 @@ function viewIssue($context) {
       </div>
 
       <?php
-      if ($issue['status'] == "open") {
+      if ($issue['status'] == "open" && $session->logged_in) {
       ?>
         <div class="edit-message">
           <div class="user">
-            <?php $currentUser = array("email" => "IJMacD@gmail.com", "name" => "Iain MacDonald"); ?>
-            <?php echo formatUser($currentUser); ?>
+            <?php echo formatUser($session->user); ?>
             <div class="note">Add Comment</div>
           </div>
           <form action="" method="post" class="details">
@@ -360,7 +380,7 @@ function viewIssue($context) {
         <h2>
         Assigned To
         <?php
-        if ($issue['status'] == "open") {
+        if ($issue['status'] == "open" && $session->canEdit()) {
           renderAssignment($issue);
         }
         ?>
@@ -377,6 +397,7 @@ function viewIssue($context) {
         <h2>
           Status
           <?php
+          if($session->canEdit()) {
             if ($issue['status'] == "open") {
               $value = "closed";
               $class = "btn-danger";
@@ -388,10 +409,13 @@ function viewIssue($context) {
               $label = "Re-open Issue";
             }
           ?>
-          <form action="" method="post" style="display: inline;">
-            <input type="hidden" name="status" value="<?php echo $value ?>" />
-            <input type="submit" class="btn btn-sm <?php echo $class ?>" value="<?php echo $label ?>" />
-          </form>
+            <form action="" method="post" style="display: inline;">
+              <input type="hidden" name="status" value="<?php echo $value ?>" />
+              <input type="submit" class="btn btn-sm <?php echo $class ?>" value="<?php echo $label ?>" />
+            </form>
+          <?php
+          }
+          ?>
         </h2>
         <?php echo $issue['status']; ?>
       </div>
@@ -400,7 +424,7 @@ function viewIssue($context) {
         <h2>
           Deadline
           <?php
-            if ($issue['status'] == "open") { ?>
+            if ($issue['status'] == "open" && $session->canEdit()) { ?>
               <button class="btn btn-default btn-sm" data-toggle="#edit-deadline">Set Deadline</button>
             <?php
             }
@@ -421,7 +445,7 @@ function viewIssue($context) {
         <h2>
           Tags
           <?php
-            if ($issue['status'] == "open") { ?>
+            if ($issue['status'] == "open" && $session->canEdit()) { ?>
               <button class="btn btn-default btn-sm" data-toggle="#edit-tags">Edit Tags</button>
             <?php
             }
@@ -442,7 +466,7 @@ function viewIssue($context) {
         <h2>
           Subscribers
           <?php
-            if ($issue['status'] == "open") { ?>
+            if ($issue['status'] == "open" && $session->canEdit()) { ?>
               <button class="btn btn-default btn-sm" data-toggle="#edit-subscribers">Add subcribers</button>
             <?php
             }
@@ -456,7 +480,11 @@ function viewIssue($context) {
           $flat_list = array();
 
           foreach ($notify as $user) {
-            echo '<li>'.formatUser($user).'<button class="btn btn-outline-danger btn-sm m-1">Remove</button></li>';
+            echo '<li>'.formatUser($user);
+            if($session->canEdit()) {
+              echo '<button class="btn btn-outline-danger btn-sm m-1">Remove</button>';
+            }
+            echo '</li>';
             $flat_list[] = formatUserAddress($user);
           }
           ?>
@@ -533,12 +561,6 @@ function viewLogin($context) {
       <label for="password">password</label>
       <input type="password" class="form-control" id="password" name="password" required>
       <small><?php echo $context['password_error']; ?></small>
-    </div>
-    <div class="form-check">
-      <label class="form-check-label" for="remember">
-        <input type="checkbox" class="form-check-input" id="remember" name="remember">
-        Remember Me
-      </label>
     </div>
     <button type="submit" class="btn btn-primary">Login</button>
   </form>
