@@ -25,6 +25,7 @@ class Session
    var $userinfo = array();  //The array holding all user info
    var $url;          //The page url current being viewed
    var $referrer;     //Last recorded site page viewed
+   var $user;           // Array with "email" => ..., "name" => ...
 
    /**
     * Note: referrer should really only be considered the actual
@@ -57,6 +58,7 @@ class Session
       if(!$this->logged_in){
          $this->username = "";
          $this->userlevel = 0;
+         $this->user = null;
       }
       /* Update users last active timestamp */
       else{
@@ -109,13 +111,17 @@ class Session
          $this->userinfo  = $db->getUserInfo($_SESSION['username']);
          $this->username  = $this->userinfo['username'];
          $this->userid    = $_SESSION['userid'];
+         $this->user = array(
+          "email" => $this->userinfo['email'],
+          "name" => $this->userinfo['name'],
+        );
         //  $this->userlevel = $this->userinfo['userlevel'];
 
         //  /* auto login hash expires in three days */
         //  if($this->userinfo['hash_generated'] < (time() - (60*60*24*3))){
         //  	/* Update the hash */
-	    //      $db->updateUserField($this->userinfo['username'], 'hash', $this->generateRandID());
-	    //      $db->updateUserField($this->userinfo['username'], 'hash_generated', time());
+        //      $db->updateUserField($this->userinfo['username'], 'hash', $this->generateRandID());
+        //      $db->updateUserField($this->userinfo['username'], 'hash_generated', time());
         //  }
 
          return true;
@@ -173,6 +179,10 @@ class Session
       $this->userinfo  = $db->getUserInfo($subuser);
       $this->username  = $_SESSION['username'] = $this->userinfo['username'];
       $this->userid    = $_SESSION['userid']   = $this->generateRandID();
+      $this->user = array(
+        "email" => $this->userinfo['email'],
+        "name" => $this->userinfo['name'],
+      );
     //   $this->userlevel = $this->userinfo['userlevel'];
 
       /* Insert userid into database and update active users table */
@@ -226,6 +236,7 @@ class Session
       /* Set user level to guest */
       $this->username  = "";
       $this->userlevel = 0;
+      $this->user = null;
    }
 
    /**

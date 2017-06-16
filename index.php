@@ -148,6 +148,9 @@ switch (count($parts) > 0 ? $parts[0] : "") {
         case "login":
           processLogin();
           break;
+        case "logout":
+          processLogout();
+          break;
       }
       break;
     }
@@ -160,8 +163,6 @@ switch (count($parts) > 0 ? $parts[0] : "") {
       $context['title'] = "Status: ".htmlspecialchars($_GET['status']);
     }
     $context["issues"] = $issue->getIssues($options);
-    $context["logged_in"] = $session->logged_in;
-    $context["username"] = $session->username;
     viewIndex($context);
 }
 
@@ -184,15 +185,6 @@ function viewIndex($context) {
     <?php echo $title ?>
     <a class="btn btn-primary" href="<?php echo $new_link; ?>">New Issue</a>
   </h1>
-
-  <?php
-  if($context["logged_in"]) {
-    echo '<p>Logged in as '.$context["username"].'</p>';
-  }
-  else {
-    echo '<a href="'.URL_BASE.'/login">Login</a>';
-  }
-  ?>
 
   <table class="table">
     <thead>
@@ -602,7 +594,8 @@ function formatUserAddress($user){
   return $user['email'];
 }
 
-function renderHeader() {
+function renderHeader($context=array()) {
+  global $session;
   ?>
   <!DOCTYPE html>
   <html>
@@ -648,6 +641,19 @@ function renderHeader() {
       display: inline-block;
       margin: 4px;
       float: left;
+    }
+    .navbar .avatar {
+      border-radius: .25rem;
+      border: 1px solid #333;
+    }
+    .navbar .name {
+      margin: .25rem .25rem !important
+    }
+    .bg-inverse .avatar {
+      border-color: #ccc;
+    }
+    .bg-inverse .name {
+      color: #fff;
     }
     .date {
       font-size: 0.8em;
@@ -726,8 +732,20 @@ function renderHeader() {
     </style>
   </title>
   <body>
-    <div class="navbar navbar-inverse bg-inverse">
+    <div class="navbar navbar-inverse bg-inverse navbar-toggleable-md">
       <a class="navbar-brand" href="<?php echo URL_BASE ?>">BugTracker</a>
+
+      <div class="ml-auto">
+        <?php
+        if($session->logged_in) {
+          echo formatUser($session->user);
+          echo '<a href="'.URL_BASE.'/process/logout" class="btn btn-outline-danger">Logout</a>';
+        }
+        else {
+          echo '<a href="'.URL_BASE.'/login" class="btn btn-outline-info">Login</a>';
+        }
+        ?>
+      </div>
     </div>
     <div class="container">
   <?php
@@ -791,4 +809,12 @@ function processLogin() {
       $_SESSION['error_array'] = $form->getErrorArray();
       redirect($session->referrer);
   }
+}
+
+function processLogout() {
+  global $session;
+
+  $session->logout();
+
+  redirect(URL_BASE);
 }
