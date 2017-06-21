@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 15, 2017 at 02:03 PM
+-- Generation Time: Jun 21, 2017 at 12:07 PM
 -- Server version: 5.1.41
 -- PHP Version: 5.6.30
 
@@ -38,7 +38,9 @@ CREATE TABLE IF NOT EXISTS `activeusers` (
 --
 
 INSERT INTO `activeusers` (`username`, `userid`, `timestamp`) VALUES
-('IJMacD@gmail.com', '466c27b0c105e72581a4e7f96bcf7aab', '2017-06-15 12:02:10');
+('IJMacD@gmail.com', '466c27b0c105e72581a4e7f96bcf7aab', '2017-06-15 12:02:10'),
+('IJMacD@gmail.com', 'b8a68e19e462060fd1052eb1b7a0940a', '2017-06-20 04:40:51'),
+('IJMacD@gmail.com', 'd36015e4d434aa9fec3a1f3b008ddac4', '2017-06-21 10:06:56');
 
 -- --------------------------------------------------------
 
@@ -54,7 +56,7 @@ CREATE TABLE IF NOT EXISTS `history` (
   `type` varchar(255) NOT NULL,
   `value` text NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=67 ;
+) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=68 ;
 
 --
 -- Dumping data for table `history`
@@ -126,7 +128,8 @@ INSERT INTO `history` (`id`, `issue_id`, `user`, `date`, `type`, `value`) VALUES
 (63, 29, 'ijmacd@gmail.com', '2017-06-13 04:28:15', 'CREATE', 'a:5:{s:5:"title";s:16:"Issue with tags ";s:11:"description";s:29:"Here''s a story all about...\r\n";s:7:"creator";s:16:"ijmacd@gmail.com";s:6:"notify";a:1:{i:0;s:16:"ijmacd@gmail.com";}s:4:"tags";s:14:"TST,English,IT";}'),
 (64, 30, 'ijmacd@gmail.com', '2017-06-13 04:34:36', 'CREATE', 'a:5:{s:5:"title";s:16:"Issue with tags ";s:11:"description";s:29:"Here''s a story all about...\r\n";s:7:"creator";s:16:"ijmacd@gmail.com";s:6:"notify";a:1:{i:0;s:16:"ijmacd@gmail.com";}s:4:"tags";s:14:"TST,English,IT";}'),
 (65, 31, 'IJMacD@gmail.com', '2017-06-13 04:35:26', 'CREATE', 'a:4:{s:5:"title";s:8:"Checking";s:11:"description";s:40:"Let''s see if this actually can add tags.";s:4:"tags";N;s:7:"creator";s:16:"IJMacD@gmail.com";}'),
-(66, 32, 'IJMacD@gmail.com', '2017-06-13 04:36:35', 'CREATE', 'a:4:{s:5:"title";s:8:"Checking";s:11:"description";s:40:"Let''s see if this actually can add tags.";s:4:"tags";s:13:"English, Fish";s:7:"creator";s:16:"IJMacD@gmail.com";}');
+(66, 32, 'IJMacD@gmail.com', '2017-06-13 04:36:35', 'CREATE', 'a:4:{s:5:"title";s:8:"Checking";s:11:"description";s:40:"Let''s see if this actually can add tags.";s:4:"tags";s:13:"English, Fish";s:7:"creator";s:16:"IJMacD@gmail.com";}'),
+(67, 30, 'IJMacD@gmail.com', '2017-06-21 09:42:47', 'UPDATE', 'a:1:{s:4:"tags";s:16:"English, IT, TST";}');
 
 -- --------------------------------------------------------
 
@@ -144,7 +147,6 @@ CREATE TABLE IF NOT EXISTS `issues` (
   `assignee` varchar(255) NOT NULL,
   `assigned` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `deadline` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `tags` varchar(255) NOT NULL,
   `message_id` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 AUTO_INCREMENT=33 ;
@@ -153,22 +155,22 @@ CREATE TABLE IF NOT EXISTS `issues` (
 -- Dumping data for table `issues`
 --
 
-INSERT INTO `issues` (`id`, `title`, `status`, `description`, `creator`, `created`, `assignee`, `assigned`, `deadline`, `tags`, `message_id`) VALUES
-(1, 'Test issue', 'open', '##Test Issue Details\r\n\r\nThis is the description of the issue. Here are some points:\r\n\r\n* First Point\r\n* Second Point', 'IJMacD@gmail.com', '2017-06-18 04:37:00', 'iain.ilearner@gmail.com', '2017-06-08 04:29:46', '0000-00-00 00:00:00', 'TST', ''),
-(2, 'Another issue', 'closed', 'Short description', 'IJMacD@gmail.com', '2017-06-19 16:43:40', 'IJMacD@gmail.com', '2017-06-19 16:43:40', '2017-06-30 04:40:20', 'TST, English', ''),
-(3, 'Third issue', 'open', 'Short description', 'IJMacD@gmail.com', '2017-06-18 12:57:00', 'iain@i-learner.edu.hk', '2017-06-18 12:57:00', '2017-05-30 02:43:40', 'Wan Chai, English', ''),
-(4, 'This is a new issue', 'closed', 'Is like to add this issue please:\r\n\r\n* Stuff happens and I don''t know why\r\n* Please fix it\r\n', 'ijmacd@gmail.com', '2017-06-07 04:03:23', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', '', ''),
-(5, 'Creating issues is easy', 'closed', 'I want it to be harder =F0=9F=98=A1\r\n', 'ijmacd@gmail.com', '2017-06-07 04:08:38', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', '', ''),
-(6, 'More testing', 'open', 'With more emotions ', 'ijmacd@gmail.com', '2017-06-07 04:13:32', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', 'Website, ', ''),
-(7, 'Time for a new issue', 'closed', 'OK I lied, I tried to add this before. This is a test message.\r\n\r\nIt has some new lines. Some *bold* text.\r\n\r\n* It also has a list\r\n* with <a href="http://www.i-learner.edu.hk">links</a>\r\n', 'iain.ilearner@gmail.com', '2017-06-07 08:40:18', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', '', ''),
-(8, 'Time for a new issue', 'open', 'OK I lied, I tried to add this before. This is a test message.\r\n\r\nIt has some new lines. Some **bold** text.\r\n\r\n* It also has a list\r\n* with <a href="http://www.i-learner.edu.hk">links</a>\r\n', 'iain.ilearner@gmail.com', '2017-06-07 08:41:35', 'iain.ilearner@gmail.com', '2017-06-08 02:22:46', '0000-00-00 00:00:00', 'Wan Chai, Admin', ''),
-(9, 'Can I add emoji here?', 'open', '***Another new test issue***\r\n', 'iain.ilearner@gmail.com', '2017-06-08 02:31:32', 'iain.ilearner@gmail.com', '2017-06-08 04:25:42', '0000-00-00 00:00:00', '', ''),
-(10, 'Re: Can I add emoji here? ðŸ•', 'open', 'Let''s see what happens', 'iain.ilearner@gmail.com', '2017-06-08 02:49:48', 'IJMacD@gmail.com', '2017-06-08 04:28:07', '0000-00-00 00:00:00', '', ''),
-(11, 'Can I add emoji here? ðŸ•', 'open', '***Another new test issue***\r\n', 'iain.ilearner@gmail.com', '2017-06-08 03:04:33', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', 'TST', ''),
-(30, 'Issue with tags ', 'open', 'Here''s a story all about...\r\n', 'ijmacd@gmail.com', '2017-06-13 04:34:36', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', 'TST,English,IT', ''),
-(24, 'Plain', 'open', 'Just a simple message\r\n\r\n* OK some **Formatting** too\r\n', 'iain.ilearner@gmail.com', '2017-06-12 08:25:02', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', '', ''),
-(23, 'Issue Spam', 'open', 'How about some chinese in here? é»žè§£ï¼Ÿ\r\n', 'iain.ilearner@gmail.com', '2017-06-12 08:23:36', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', '', ''),
-(32, 'Checking', 'open', 'Let''s see if this actually can add tags.', 'IJMacD@gmail.com', '2017-06-13 04:36:35', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', 'English, Fish', '');
+INSERT INTO `issues` (`id`, `title`, `status`, `description`, `creator`, `created`, `assignee`, `assigned`, `deadline`, `message_id`) VALUES
+(1, 'Test issue', 'open', '##Test Issue Details\r\n\r\nThis is the description of the issue. Here are some points:\r\n\r\n* First Point\r\n* Second Point', 'IJMacD@gmail.com', '2017-06-18 04:37:00', 'iain.ilearner@gmail.com', '2017-06-08 04:29:46', '0000-00-00 00:00:00', ''),
+(2, 'Another issue', 'closed', 'Short description', 'IJMacD@gmail.com', '2017-06-19 16:43:40', 'IJMacD@gmail.com', '2017-06-19 16:43:40', '2017-06-30 04:40:20', ''),
+(3, 'Third issue', 'open', 'Short description', 'IJMacD@gmail.com', '2017-06-18 12:57:00', 'iain@i-learner.edu.hk', '2017-06-18 12:57:00', '2017-05-30 02:43:40', ''),
+(4, 'This is a new issue', 'closed', 'Is like to add this issue please:\r\n\r\n* Stuff happens and I don''t know why\r\n* Please fix it\r\n', 'ijmacd@gmail.com', '2017-06-07 04:03:23', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', ''),
+(5, 'Creating issues is easy', 'closed', 'I want it to be harder =F0=9F=98=A1\r\n', 'ijmacd@gmail.com', '2017-06-07 04:08:38', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', ''),
+(6, 'More testing', 'open', 'With more emotions ', 'ijmacd@gmail.com', '2017-06-07 04:13:32', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', ''),
+(7, 'Time for a new issue', 'closed', 'OK I lied, I tried to add this before. This is a test message.\r\n\r\nIt has some new lines. Some *bold* text.\r\n\r\n* It also has a list\r\n* with <a href="http://www.i-learner.edu.hk">links</a>\r\n', 'iain.ilearner@gmail.com', '2017-06-07 08:40:18', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', ''),
+(8, 'Time for a new issue', 'open', 'OK I lied, I tried to add this before. This is a test message.\r\n\r\nIt has some new lines. Some **bold** text.\r\n\r\n* It also has a list\r\n* with <a href="http://www.i-learner.edu.hk">links</a>\r\n', 'iain.ilearner@gmail.com', '2017-06-07 08:41:35', 'iain.ilearner@gmail.com', '2017-06-08 02:22:46', '0000-00-00 00:00:00', ''),
+(9, 'Can I add emoji here?', 'open', '***Another new test issue***\r\n', 'iain.ilearner@gmail.com', '2017-06-08 02:31:32', 'iain.ilearner@gmail.com', '2017-06-08 04:25:42', '0000-00-00 00:00:00', ''),
+(10, 'Re: Can I add emoji here? ðŸ•', 'open', 'Let''s see what happens', 'iain.ilearner@gmail.com', '2017-06-08 02:49:48', 'IJMacD@gmail.com', '2017-06-08 04:28:07', '0000-00-00 00:00:00', ''),
+(11, 'Can I add emoji here? ðŸ•', 'open', '***Another new test issue***\r\n', 'iain.ilearner@gmail.com', '2017-06-08 03:04:33', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', ''),
+(30, 'Issue with tags ', 'open', 'Here''s a story all about...\r\n', 'ijmacd@gmail.com', '2017-06-13 04:34:36', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', ''),
+(24, 'Plain', 'open', 'Just a simple message\r\n\r\n* OK some **Formatting** too\r\n', 'iain.ilearner@gmail.com', '2017-06-12 08:25:02', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', ''),
+(23, 'Issue Spam', 'open', 'How about some chinese in here? é»žè§£ï¼Ÿ\r\n', 'iain.ilearner@gmail.com', '2017-06-12 08:23:36', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', ''),
+(32, 'Checking', 'open', 'Let''s see if this actually can add tags.', 'IJMacD@gmail.com', '2017-06-13 04:36:35', '', '0000-00-00 00:00:00', '0000-00-00 00:00:00', '');
 
 -- --------------------------------------------------------
 
@@ -218,6 +220,38 @@ INSERT INTO `notify` (`id`, `issue_id`, `user`, `enabled`) VALUES
 (35, 23, 'ijmacd@gmail.com', 1),
 (34, 23, 'iain.ilearner@gmail.com', 1),
 (47, 32, 'IJMacD@gmail.com', 1);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tags`
+--
+
+CREATE TABLE IF NOT EXISTS `tags` (
+  `issue_id` int(11) NOT NULL,
+  `tag` varchar(255) NOT NULL,
+  UNIQUE KEY `issue_id` (`issue_id`,`tag`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+--
+-- Dumping data for table `tags`
+--
+
+INSERT INTO `tags` (`issue_id`, `tag`) VALUES
+(1, 'TST'),
+(2, 'English'),
+(2, 'TST'),
+(3, 'English'),
+(3, 'Wan Chai'),
+(6, 'Website'),
+(8, 'Admin'),
+(8, 'Wan Chai'),
+(11, 'TST'),
+(30, 'English'),
+(30, 'IT'),
+(30, 'TST'),
+(32, 'English'),
+(32, 'Fish');
 
 -- --------------------------------------------------------
 

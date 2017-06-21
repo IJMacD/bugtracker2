@@ -36,7 +36,7 @@ class DB {
       }
     }
 
-    $order = " ORDER BY status DESC, assignee_email = '' DESC, deadline = '0000-00-00 00:00:00' ASC, deadline ASC, created ASC";
+    $order = " GROUP BY a.id ORDER BY status DESC, assignee_email = '' DESC, deadline = '0000-00-00 00:00:00' ASC, deadline ASC, created ASC";
 
     $stmt = $this->db->prepare($this->_selectIssues() . $where . $order);
 
@@ -55,16 +55,19 @@ class DB {
   }
 
   function insertIssue($user, $fields) {
-      $stmt = $this->db->prepare("INSERT INTO issues (title, description, creator, tags) VALUES (?,?,?,?)");
+      $stmt = $this->db->prepare("INSERT INTO issues (title, description, creator) VALUES (?,?,?)");
 
       $stmt->execute(array(
         $fields['title'],
         $fields['description'],
-        $fields['creator'],
-        isset($fields['tags']) ? $fields['tags'] : "",
+        $fields['creator']
       ));
 
       $id = $this->db->lastInsertId();
+
+      if(isset($fields['tags'])){
+        $this->insertTags($id, $fields['tags']);
+      }
 
       return $id;
   }
@@ -72,19 +75,41 @@ class DB {
   function updateIssue($user, $id, $fields) {
       $placeholders = array();
       $values = array();
-      $valid_fields = array("title", "description", "creator", "created", "status", "assignee", "assigned", "deadline", "tags", "message_id");
+      $valid_fields = array("title", "description", "creator", "created", "status", "assignee", "assigned", "deadline", "message_id");
+
       foreach($fields as $name => $value) {
         if (in_array($name, $valid_fields)) {
           $placeholders[] = "$name = ?";
           $values[] = $value;
         }
       }
-      if(count($values) == 0) {
-        return;
+
+      if(count($values) > 0) {
+        $values[] = $id;
+        $stmt = $this->db->prepare("UPDATE issues SET ".implode(",", $placeholders)." WHERE id = ?");
+        $stmt->execute($values);
       }
-      $values[] = $id;
-      $stmt = $this->db->prepare("UPDATE issues SET ".implode(",", $placeholders)." WHERE id = ?");
-      $stmt->execute($values);
+
+      if(isset($fields['tags'])) {
+        $stmt = $this->db->prepare("DELETE FROM tags WHERE issue_id = ?");
+        $stmt->execute(array($id));
+
+        $this->insertTags($id, $fields['tags']);
+      }
+  }
+
+  function insertTags($id, $tags) {
+    $tags = explode(",", $tags);
+
+    $stmt = $this->db->prepare("INSERT INTO tags (issue_id, tag) VALUES (?,?)");
+
+    foreach($tags as $tag) {
+      $tag = trim($tag);
+
+      if($tag) {
+        $stmt->execute(array($id, $tag));
+      }
+    }
   }
 
   function getIssueHistory($id) {
@@ -149,6 +174,12 @@ class DB {
       ORDER BY email");
 
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
+  }
+
+  function getTags() {
+    $stmt = $this->db->query("SELECT `tag`, COUNT(*) as 'count' FROM `tags` GROUP BY `tag` ORDER BY `count` DESC");
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
   /* ==============================
@@ -287,10 +318,11 @@ class DB {
       c.name as 'assignee_name',
       UNIX_TIMESTAMP(deadline) as 'deadline',
       message_id,
-      tags
+      GROUP_CONCAT(d.tag SEPARATOR ', ') as 'tags'
       FROM issues a
         LEFT JOIN users b ON a.creator = b.email
-        LEFT JOIN users c ON a.assignee = c.email";
+        LEFT JOIN users c ON a.assignee = c.email
+        LEFT JOIN tags d ON a.id = d.issue_id";
   }
 }
 

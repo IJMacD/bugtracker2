@@ -130,9 +130,10 @@ switch (count($parts) > 0 ? $parts[0] : "") {
       }
       $context["issues"] = $issue->getIssuesByTag($parts[1], $options);
       viewIndex($context);
-    }
-    else {
-      methodUnavailable();
+    } else {
+      $context = array();
+      $context['tags'] = $db->getTags();
+      viewTags($context);
     }
     break;
   case "user":
@@ -210,7 +211,7 @@ function viewIndex($context) {
   <table class="table">
     <thead>
       <tr>
-        <th>Title</th><th>Status</th><th>Created By</th><th>Assigned To</th><th>Deadline</th><th>Tags</th>
+        <th>Title</th><th>Status</th><th>Created By</th><th>Assigned To</th><th>Deadline</th><th><a href="<?php echo URL_BASE . "/tag/"; ?>">Tags</a></th>
       </tr>
     </thead>
     <tbody>
@@ -564,6 +565,35 @@ function viewLogin($context) {
     </div>
     <button type="submit" class="btn btn-primary">Login</button>
   </form>
+
+  <?php
+  renderFooter();
+}
+
+function viewTags($context) {
+  global $session;
+
+  renderHeader();
+  ?>
+
+  <h1>Tags</h1>
+
+  <div class="row">
+    <?php
+      foreach($context['tags'] as $tag) {
+        $bg = substr(md5($tag['tag']), 0, 6);
+        $url = URL_BASE . "/tag/" . urlencode($tag['tag']);
+        ?>
+        <div class="col-md-4">
+          <section class="p-1 m-1 card">
+            <h1><a href="<?php echo $url; ?>" class="badge" style="background: #<?php echo $bg; ?>"><?php echo $tag['tag']; ?></a></h1>
+            <p>Issues: <?php echo $tag['count']; ?></p>
+          </section>
+        </div>
+        <?php
+      }
+    ?>
+  </div>
 
   <?php
   renderFooter();
