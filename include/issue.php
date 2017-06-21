@@ -27,18 +27,7 @@ class Issue {
 
     normalizeIssue($issue);
 
-    $history = $db->getIssueHistory($id);
-    foreach($history as &$entry){
-      $entry['user'] = array(
-        "email" => $entry['user_email'],
-        "name" => $entry['user_name']
-      );
-
-      if ($entry['type'] == "UPDATE") {
-        $entry['value'] = unserialize($entry['value']);
-      }
-    }
-    $issue['history'] = $history;
+    $issue['history'] = $this->getHistory($id);
 
     return $issue;
   }
@@ -180,6 +169,26 @@ class Issue {
     }
   }
 
+  function getHistory($id) {
+    global $db;
+
+    $history = $db->getIssueHistory($id);
+    foreach($history as &$entry){
+      $entry['user'] = array(
+        "email" => $entry['user_email'],
+        "name" => $entry['user_name']
+      );
+
+      unset($entry['user_email']);
+      unset($entry['user_name']);
+
+      if ($entry['type'] == "UPDATE" || $entry['type'] == "CREATE") {
+        $entry['value'] = unserialize($entry['value']);
+      }
+    }
+    return $history;
+  }
+
 }
 
 
@@ -193,6 +202,12 @@ function normalizeIssue (&$issue) {
     else {
       $issue['assignee'] = null;
     }
+
+    unset($issue['creator_name']);
+    unset($issue['creator_email']);
+    unset($issue['assignee_name']);
+    unset($issue['assignee_email']);
+    unset($issue['message_id']);
 
     $issue['tags'] = array_filter(
       array_map(

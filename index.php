@@ -157,6 +157,18 @@ switch (count($parts) > 0 ? $parts[0] : "") {
   case "project":
     // methodUnavailable();
     // break;
+  case "export.json":
+    $options = array();
+    if(isset($_GET['status'])) {
+      $options['status'] = $_GET['status'];
+    }
+    $issues = $issue->getIssues($options);
+    foreach($issues as &$i) {
+      $i['history'] = $issue->getHistory($i['id']);
+    }
+    header("Content-Type: application/json");
+    echo json_encode($issues);
+    break;
   case "process":
     if(count($parts) >= 2) {
       switch($parts[1]) {
