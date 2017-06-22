@@ -597,9 +597,15 @@ function viewTags($context) {
         $url = URL_BASE . "/tag/" . urlencode($tag['tag']);
         ?>
         <div class="col-md-4">
-          <section class="p-1 m-1 card">
-            <h1><a href="<?php echo $url; ?>" class="badge" style="background: #<?php echo $bg; ?>"><?php echo $tag['tag']; ?></a></h1>
-            <p>Issues: <?php echo $tag['count']; ?></p>
+          <section class="mb-3 card">
+            <a href="<?php echo $url; ?>">
+              <h1 class="card-header" style="background: #<?php echo $bg; ?>">
+                <span class="badge"><?php echo $tag['tag']; ?></span>
+              </h1>
+            </a>
+            <div class="card-block">
+              <p class="card-text">Issues: <?php echo $tag['count']; ?></p>
+            </div>
           </section>
         </div>
         <?php
