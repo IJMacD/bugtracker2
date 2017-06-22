@@ -30,13 +30,16 @@ class DB {
       if ($options['status'] == "unassigned") {
         $where = " WHERE status = 'open' AND assignee = ''";
       }
+      else if ($options['status'] == "overdue") {
+        $where = " WHERE status = 'open' AND deadline != '0000-00-00 00:00:00' AND deadline < FROM_UNIXTIME(".time().")";
+      }
       else {
         $where = " WHERE status = ?";
         $values[] = $options['status'];
       }
     }
 
-    $order = " GROUP BY a.id ORDER BY status DESC, assignee_email = '' DESC, deadline = '0000-00-00 00:00:00' ASC, deadline ASC, created ASC";
+    $order = " GROUP BY a.id ORDER BY status DESC, deadline = '0000-00-00 00:00:00' ASC, assignee_email = '' DESC, deadline ASC, created ASC";
 
     $stmt = $this->db->prepare($this->_selectIssues() . $where . $order);
 

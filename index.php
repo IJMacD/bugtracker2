@@ -223,7 +223,7 @@ function viewIndex($context) {
   <table class="table">
     <thead>
       <tr>
-        <th>Title</th><th>Status</th><th>Created By</th><th>Assigned To</th><th>Deadline</th><th><a href="<?php echo URL_BASE . "/tag/"; ?>">Tags</a></th>
+        <th>Status</th><th>Title</th><th>Created By</th><th>Assigned To</th><th>Deadline</th><th><a href="<?php echo URL_BASE . "/tag/"; ?>">Tags</a></th>
       </tr>
     </thead>
     <tbody>
@@ -231,15 +231,33 @@ function viewIndex($context) {
       foreach($context['issues'] as $issue) {
         ?>
         <tr class="status-<?php echo $issue['status'] ?> <?php echo $issue['assignee'] ? "status-assigned" : "status-unassigned" ?>">
-          <td><a href="<?php echo URL_BASE ?>/issue/<?php echo $issue['id'] ?>"><?php echo $issue['title'] ?></a></td>
           <td class="status">
             <?php
-              echo '<a href="?status='.$issue['status'].'">'.$issue['status'].'</a>';
-              if($issue['status'] == "open" && !$issue['assignee']) {
-                echo ', <a href="?status=unassigned">unassigned</a>';
+              $url = '?status='.$issue['status'];
+              $title = $issue['status'];
+              $color = "#CCC";
+
+              if($issue['status'] == "open") {
+                $color ="#008000";
+
+                if(!$issue['assignee']) {
+                  $url = '?status=unassigned';
+                  $title .= ', unassigned';
+                  $color = "#ff8000";
+                }
+
+                if($issue['deadline'] && $issue['deadline'] < time()) {
+                  $url = '?status=overdue';
+                  $title .= ', overdue';
+                  $color = "#ff0000";
+                }
               }
+              echo '<a href="'.$url.'" title="'.$title.'">'
+                .'<div class="status-light" style="background: '.$color.'"></div>'
+                .'</a>';
             ?>
           </td>
+          <td><a href="<?php echo URL_BASE ?>/issue/<?php echo $issue['id'] ?>"><?php echo $issue['title'] ?></a></td>
           <td>
             <?php echo formatUser($issue['creator']) ?>
             <div class="date"><?php echo formatDate($issue['date']) ?></div>
@@ -651,7 +669,7 @@ function formatTags($tags) {
   foreach($tags as $tag) {
     $tag = trim($tag);
     $bg = substr(md5($tag), 0, 6);
-    $out[] = '<a href="'.URL_BASE.'/tag/'.$tag.'" class="badge" style="background: #'.$bg.'">'.$tag.'</a>';
+    $out[] = '<a href="'.URL_BASE.'/tag/'.urlencode($tag).'" class="badge" style="background: #'.$bg.'">'.$tag.'</a>';
   }
   return implode(" ", $out);
 }
@@ -694,6 +712,21 @@ function renderHeader($context=array()) {
     }
     .status-open.status-assigned .status {
       /*color: #633;*/
+    }
+    .status-light {
+      height: 1.5rem;
+      width: 1.5rem;
+      border-radius: 50%;
+      margin: 0 auto;
+      border: 2px solid rgba(0,0,0,0.2);
+    }
+    .status-light::after {
+      content: "";
+      display: block;
+      height: 100%;
+      width: 100%;
+      border-radius: 50%;
+      background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.2));
     }
     .status-closed td,
     .status-closed a {
