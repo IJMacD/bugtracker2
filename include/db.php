@@ -40,12 +40,13 @@ class DB {
     }
 
     $order = " GROUP BY a.id"
-      ." ORDER BY status DESC,"
-      ." deadline != '0000-00-00 00:00:00' AND deadline < NOW() DESC,"
-      ." assignee_email = '' DESC,"
-      ." deadline = '0000-00-00 00:00:00' ASC,"
-      ." deadline ASC,"
-      ." created ASC";
+      ." ORDER BY"
+        ." status DESC,"
+        ." deadline != '0000-00-00 00:00:00' AND deadline < NOW() DESC,"
+        ." assignee_email = '' DESC,"
+        ." deadline = '0000-00-00 00:00:00' ASC,"
+        ." deadline ASC,"
+        ." created ASC";
 
     $stmt = $this->db->prepare($this->_selectIssues() . $where . $order);
 

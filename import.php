@@ -44,6 +44,12 @@ function importMessages () {
             // var_dump($headers);
             // continue;
 
+            if (isset($headers->x_autoreply) || isset($headers->auto_submitted)) {
+                echo "Auto-Reply found\n";
+                // DO NOT get into infinite loop!!
+                continue;
+            }
+
             $from_addresses = $headers->from;
 
             if ($from_addresses && count($from_addresses) >= 1) {
