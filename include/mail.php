@@ -16,11 +16,20 @@ class Mail {
         $this->connect();
     }
 
+    function __destruct () {
+        imap_close($this->inbox);
+    }
+
     function connect() {
         global $hostname, $username, $password;
 
-        /* try to connect */
-        $this->inbox = imap_open($hostname, $username, $password) or die('Cannot connect to Gmail: ' . imap_last_error());
+        if (!$this->inbox) {
+            /* try to connect */
+            $this->inbox = imap_open($hostname, $username, $password) or die('Cannot connect to Gmail: ' . imap_last_error());
+        }
+        else if (!imap_ping($this->inbox)) {
+            $this->inbox = imap_open($hostname, $username, $password);
+        }
 
         return $this->inbox;
     }

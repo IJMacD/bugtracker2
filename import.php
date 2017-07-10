@@ -8,10 +8,23 @@ require_once("./include/db.php");
 
 // If we're in the browser make sure output is formatted
 if (PHP_SAPI !== "cli") {
-    echo "<pre>\n";
+    console_log("<pre>\n");
 }
 
-importMessages();
+$log_fh = fopen("import.log", "a");
+
+$opts = getopt("p");
+
+if(isset($opts['p'])) {
+    $count = 60; // Loop for one approx. hour
+    while ($count--) {
+        importMessages();
+        sleep(60 - date("s"));
+    }
+}
+else {
+    importMessages();
+}
 
 function importMessages () {
     global $db, $mail, $issue;
@@ -29,14 +42,14 @@ function importMessages () {
     /* grab emails */
     $emails = imap_search($inbox,'ALL');
 
+    console_log("Emails found: ".($emails ? count($emails) : "0"));
+
     /* if emails are returned, cycle through each... */
     if($emails) {
 
-        echo "Emails found: ".count($emails)."\n";
-
         /* for every email... */
         foreach($emails as $email_number) {
-            echo "Processing email $email_number\n";
+            console_log("Processing email $email_number");
 
             /* get information specific to this email */
             $overview = imap_fetch_overview($inbox,$email_number,0);
@@ -49,7 +62,7 @@ function importMessages () {
             // continue;
 
             if (strpos($raw_header, "X-Autoreply") !== false || strpos($raw_header, "Auto-Submitted") !== false) {
-                echo "Auto-Reply found\n";
+                console_log("Auto-Reply found\n");
                 // DO NOT get into infinite loop!!
             }
             else {
@@ -61,7 +74,7 @@ function importMessages () {
                     $from_name = $from_addresses[0]->personal;
 
                     if (isSelfEmail($from_email)) {
-                        echo "Self-email detected\n";
+                        console_log("Self-email detected");
                         continue;
                     }
 
@@ -122,7 +135,7 @@ function importMessages () {
 
                         if ($issue_id) {
 
-                            echo "Found reply to issue $issue_id\n";
+                            console_log("Found reply to issue $issue_id");
 
                             $lines = explode("\n", $body);
                             $filtered = array();
@@ -138,8 +151,19 @@ function importMessages () {
 
                             $db->insertIssueHistory($from_email, $issue_id, "COMMENT", $message);
 
-                            // There may have been new people included in the reply who should be notified
+                            // There may have been new people included in the reply who should be notified of future updates
                             $issue->addNotify($issue_id, $notify_list);
+
+                            $db->updateIssue($issue_id, array("message_id" => $overview[0]->message_id));
+
+                            // The people on the notify list will NOT be notified now though
+                            // since they have already recieved the original email.
+                            // This notifies all other subscribers, who did not recieve this message.
+                            $user = array(
+                                "name" => $from_name,
+                                "email" => $from_email
+                            );
+                            $issue->notifyIssue($issue_id, array("action" => "COMMENT", "user" => $user, "message" => $message), $notify_list);
                         }
                         else {
                             // Import new issue
@@ -150,20 +174,21 @@ function importMessages () {
                                 "creator" => $from_email,
                                 "notify" => $notify_list,
                                 "tags" => $tags,
+                                "message_id" => $overview[0]->message_id,
                             );
 
                             $id = $issue->addIssue($from_email, $fields);
 
                             $inserted++;
 
-                            $issue->notifyNewIssue($id, array("In-Reply-To" => $overview[0]->message_id));
+                            $issue->notifyIssue($id, array("action" => "CREATE"));
                         }
 
                     }
                     else if(!preg_match("/no-?reply/", $overview[0]->from)) {
                         // Not spam email
 
-                        echo "Rejected Email found.\n";
+                        console_log("Rejected Email found.");
 
                         // Send reply notififying they are not registered
                         $reply_to = $overview[0]->from;
@@ -176,11 +201,11 @@ function importMessages () {
                         $mail->sendMail($reply_to, $reply_subject, $reply_body, $reply_headers);
                     }
                     else {
-                        echo "Spam Email found.\n";
+                        console_log("Spam Email found.");
                     }
                 }
                 else {
-                    echo "No emails found\n";
+                    console_log("No emails found");
                 }
             }
 
@@ -188,14 +213,11 @@ function importMessages () {
             imap_delete($inbox, $email_number);
         }
 
+        console_log("Inserted Issues: $inserted");
+
         // Expunge
         imap_expunge($inbox);
     }
-
-    /* close the connection */
-    imap_close($inbox);
-
-    echo "Inserted Issues: $inserted\n";
 
 }
 
@@ -272,4 +294,11 @@ function parseTags ($string) {
 // Strip tags in the form of [Tag][Multiple, Tags]
 function stripTags($string) {
     return preg_replace("/\[[^]]*\]/", "", $string);
+}
+
+function console_log ($msg) {
+    global $log_fh;
+    $out = date("Y-m-d H:i:s: ") . $msg . "\n";
+    if ($log_fh) fwrite($log_fh, $out);
+    echo $out;
 }
