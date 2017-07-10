@@ -55,6 +55,11 @@ switch (count($parts) > 0 ? $parts[0] : "") {
 
         $issue->updateIssue($session->username, $parts[1], $_POST);
 
+        $details = $_POST;
+        $details['user'] = $session->user;
+
+        $issue->notifyIssue($parts[1], $details, array($session->username));
+
         if (isset($_SERVER['HTTP_REFERER'])) {
           redirect($_SERVER['HTTP_REFERER']);
         } else {
@@ -111,7 +116,7 @@ switch (count($parts) > 0 ? $parts[0] : "") {
 
         $id = $issue->addIssue($session->username, $options);
 
-        $issue->notifyNewIssue($id);
+        $issue->notifyIssue($id, array("action" => "CREATE"));
 
         redirect(URL_BASE . "/issue/" . $id);
       } else {

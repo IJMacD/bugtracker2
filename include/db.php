@@ -82,7 +82,7 @@ class DB {
       return $id;
   }
 
-  function updateIssue($user, $id, $fields) {
+  function updateIssue($id, $fields) {
       $placeholders = array();
       $values = array();
       $valid_fields = array("title", "description", "creator", "created", "status", "assignee", "assigned", "deadline", "message_id");

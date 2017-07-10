@@ -92,7 +92,7 @@ class Issue {
       // unset($fields['subscribers']);
     }
 
-    $db->updateIssue($user, $id, $fields);
+    $db->updateIssue($id, $fields);
 
     $data = serialize($fields);
     $db->insertIssueHistory($user, $id, "UPDATE", $data);
@@ -158,7 +158,6 @@ class Issue {
     global $db;
 
     $db->insertIssueHistory($user, $issue_id, "COMMENT", $message);
-
   }
 
   function addNotify($id, $list) {
@@ -191,44 +190,80 @@ class Issue {
     return $history;
   }
 
-  function notifyNewIssue ($id, $reply_headers = array()) {
-    global $db, $mail;
+  /**
+   * Notify relevant users by email
+   * @param {int} id - Issue ID
+   * @param {array} details - details of notification
+   * @param {array} exclude - Array of emails who will not recieve notification
+   * @param {array} headers - Extra headers to be added to email
+   */
+  function notifyIssue ($id, $details, $exclude = array()) {
+    global $db, $mail, $session;
+
+    $issue = $this->getIssue($id);
 
     // Send email to all on notify list
     // This includes those added automatically
     $notify_users = $db->getIssueNotify($id);
 
-    $issue = $this->getIssue($id);
-
-    // old $reply_to potentially had more info (i.e. names);
     $reply_to = array();
     foreach($notify_users as $user) {
-      $reply_to[] = $user['name'] . " <" . $user['email'] . ">";
+      if (!in_array(strtolower($user['email']), $exclude)) {
+        $reply_to[] = $user['name'] . " <" . $user['email'] . ">";
+      }
+    }
+
+    if(count($reply_to) == 0) {
+      // Everyone has already been notified.
+      return;
     }
 
     $reply_subject = $issue['title'];
 
     $url = $this->getURL($id);
 
-    $reply_body =
-      "<p><a href=\"$url\">Issue</a> has been created. You will be notified when there are any updates.</p>\n\n"
-      ."<br>\n"
-      ."<div class=\"gmail_quote\">"
-        ."On ".date("D, j M Y, H:i ", $issue['created'])
-        .$issue['creator']['name'].", &lt;<a href=\"mailto:".$issue['creator']['email']."\">".$issue['creator']['email']."</a>&gt; wrote:"
-        ."<br>\n"
-      ."</div>"
-      ."<blockquote class=\"gmail_quote\" style=\"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex\">"
-        .$this->getDescription($id)
-      ."</blockquote>";
+    if (!isset($details['action'])) {
+      return;
+    }
 
-    $reply_headers["Reply-To"] = "i-Learner Bugtracker <bugtracker.ilearner+issue$id@gmail.com>";
-      // "CC" => implode(", ", $reply_cc),
+    switch ($details['action']) {
+      case 'CREATE':
+        $reply_body =
+          "<p><a href=\"$url\">Issue</a> has been created. You will be notified when there are any updates.</p>\n\n"
+          ."<br>\n"
+          ."<div class=\"gmail_quote\">"
+            ."On ".date("D, j M Y, H:i ", $issue['created'])
+            .$issue['creator']['name'].", &lt;<a href=\"mailto:".$issue['creator']['email']."\">".$issue['creator']['email']."</a>&gt; wrote:"
+            ."<br>\n"
+          ."</div>"
+          ."<blockquote class=\"gmail_quote\" style=\"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex\">"
+            .$this->getDescription($id)
+          ."</blockquote>";
+        break;
+      case 'COMMENT':
+        $reply_body =
+          "<p><a href=\"mailto:" . $details['user']['email'] . "\">" . $details['user']['name'] . "</a> commmented on <a href=\"$url\">this</a> issue on " . date("j M Y \a\\t H:i:s") .".<br>"
+          ."Here is a copy of the message:</p>"
+          ."<div style=\"margin:0 0 0 .8ex;border:1px #ccc solid;padding-left:1ex\">"
+            .formatParsedown($details['message'])
+          ."</div>";
+        break;
+      default:
+        return;
+    }
 
-    $mail->sendMail(implode(", ", $reply_to), $reply_subject, $reply_body, $reply_headers);
-    // var_dump(implode(", ", $reply_to));
-    // var_dump(implode(", ", $reply_cc));
-    // continue;
+    $headers = array();
+    $headers["Reply-To"] = "i-Learner Bugtracker <bugtracker.ilearner+issue$id@gmail.com>";
+
+    if(isset($issue['message_id'])) {
+      $headers['In-Reply-To'] = $issue['message_id'];
+    } else {
+      $message_id = $session->generateRandID() . "@i-learner.edu.hk";
+      $db->updateIssue($id, array("message_id" => $message_id));
+      $headers['Message-ID'] = $message_id;
+    }
+
+    $mail->sendMail(implode(", ", $reply_to), $reply_subject, $reply_body, $headers);
   }
 
   function getURL($id) {
@@ -238,12 +273,14 @@ class Issue {
   function getDescription($id) {
     $issue = $this->getIssue($id);
 
-    $parsedown = new Parsedown();
-    return $parsedown->text($issue['description']);
+    return formatParsedown($issue['description']);
   }
 }
 
-
+function formatParsedown ($text) {
+  $parsedown = new Parsedown();
+  return $parsedown->text($text);
+}
 
 function normalizeIssue (&$issue) {
     $issue['creator'] = array('email' => $issue['creator_email'], "name" => $issue['creator_name']);
@@ -259,7 +296,6 @@ function normalizeIssue (&$issue) {
     unset($issue['creator_email']);
     unset($issue['assignee_name']);
     unset($issue['assignee_email']);
-    unset($issue['message_id']);
 
     $issue['tags'] = array_filter(
       array_map(
