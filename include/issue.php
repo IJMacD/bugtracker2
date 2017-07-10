@@ -222,7 +222,7 @@ class Issue {
         .$this->getDescription($id)
       ."</blockquote>";
 
-    $reply_headers["Reply-To"] = "bugtracker.ilearner+issue$id@gmail.com";
+    $reply_headers["Reply-To"] = "i-Learner Bugtracker <bugtracker.ilearner+issue$id@gmail.com>";
       // "CC" => implode(", ", $reply_cc),
 
     $mail->sendMail(implode(", ", $reply_to), $reply_subject, $reply_body, $reply_headers);
