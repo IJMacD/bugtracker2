@@ -1,6 +1,8 @@
 <?php
 
 require_once(__DIR__.'/db.php');
+require_once(__DIR__.'/mail.php');
+require_once(__DIR__.'/Parsedown.php');
 
 class Issue {
 
@@ -189,6 +191,56 @@ class Issue {
     return $history;
   }
 
+  function notifyNewIssue ($id, $reply_headers = array()) {
+    global $db, $mail;
+
+    // Send email to all on notify list
+    // This includes those added automatically
+    $notify_users = $db->getIssueNotify($id);
+
+    $issue = $this->getIssue($id);
+
+    // old $reply_to potentially had more info (i.e. names);
+    $reply_to = array();
+    foreach($notify_users as $user) {
+      $reply_to[] = $user['name'] . " <" . $user['email'] . ">";
+    }
+
+    $reply_subject = $issue['title'];
+
+    $url = $this->getURL($id);
+
+    $reply_body =
+      "<p><a href=\"$url\">Issue</a> has been created. You will be notified when there are any updates.</p>\n\n"
+      ."<br>\n"
+      ."<div class=\"gmail_quote\">"
+        ."On ".date("D, j M Y, H:i ", $issue['created'])
+        .$issue['creator']['name'].", &lt;<a href=\"mailto:".$issue['creator']['email']."\">".$issue['creator']['email']."</a>&gt; wrote:"
+        ."<br>\n"
+      ."</div>"
+      ."<blockquote class=\"gmail_quote\" style=\"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex\">"
+        .$this->getDescription($id)
+      ."</blockquote>";
+
+    $reply_headers["Reply-To"] = "bugtracker.ilearner+issue$id@gmail.com";
+      // "CC" => implode(", ", $reply_cc),
+
+    $mail->sendMail(implode(", ", $reply_to), $reply_subject, $reply_body, $reply_headers);
+    // var_dump(implode(", ", $reply_to));
+    // var_dump(implode(", ", $reply_cc));
+    // continue;
+  }
+
+  function getURL($id) {
+    return "http://192.168.0.200/c/bugtracker2/issue/$id";
+  }
+
+  function getDescription($id) {
+    $issue = $this->getIssue($id);
+
+    $parsedown = new Parsedown();
+    return $parsedown->text($issue['description']);
+  }
 }
 
 

@@ -1,5 +1,7 @@
 <?php
 
+date_default_timezone_set("Asia/Hong_Kong");
+
 require_once("./include/issue.php");
 require_once("./include/mail.php");
 require_once("./include/db.php");
@@ -38,159 +40,148 @@ function importMessages () {
 
             /* get information specific to this email */
             $overview = imap_fetch_overview($inbox,$email_number,0);
-            $headers = imap_rfc822_parse_headers(imap_fetchheader($inbox,$email_number));
+            $raw_header = imap_fetchheader($inbox,$email_number);
+            $headers = imap_rfc822_parse_headers($raw_header);
 
             // var_dump($overview);
+            // var_dump($raw_header);
             // var_dump($headers);
             // continue;
 
-            if (isset($headers->x_autoreply) || isset($headers->auto_submitted)) {
+            if (strpos($raw_header, "X-Autoreply") !== false || strpos($raw_header, "Auto-Submitted") !== false) {
                 echo "Auto-Reply found\n";
                 // DO NOT get into infinite loop!!
-                continue;
-            }
-
-            $from_addresses = $headers->from;
-
-            if ($from_addresses && count($from_addresses) >= 1) {
-
-                $from_email = $from_addresses[0]->mailbox . "@" . $from_addresses[0]->host;
-                $from_name = $from_addresses[0]->personal;
-
-                if (isSelfEmail($from_email)) {
-                    echo "Self-email detected\n";
-                    continue;
-                }
-
-                if (is_user($users, $from_email)) {
-
-                    $raw_title = imap_utf8($overview[0]->subject);
-
-                    // Parse tags in subject [Tag][Multiple, Tags]
-                    $tags = parseTags($raw_title);
-                    $title = stripTags($raw_title);
-
-                    $body = getPlainText($inbox, $email_number);
-
-                    $notify_list = array($from_email);
-
-                    $reply_to = array($headers->fromaddress);
-                    $reply_cc = array();
-
-                    foreach($headers->to as $addr) {
-                        $email = $addr->mailbox . "@" . $addr->host;
-
-                        if (!isSelfEmail($email)) {
-                            $notify_list[] = $email;
-                            $reply_to[] = formatAddr($addr);
-                        }
-                    }
-
-                    if(isset($headers->cc)) {
-                        foreach($headers->cc as $addr) {
-                            $email = $addr->mailbox . "@" . $addr->host;
-
-                            if (!isSelfEmail($email)) {
-                                $notify_list[] = $email;
-                                $reply_cc[] = formatAddr($addr);
-                            }
-                        }
-                    }
-
-                    if (preg_match("/Issue ID: (\d+)/", $body, $matches)) {
-                        // Reply to previous issue
-
-                        $issue_id = $matches[1];
-
-                        echo "Found reply to issue $issue_id\n";
-
-                        $lines = explode("\n", $body);
-                        $filtered = array();
-                        foreach($lines as $line) {
-                            if(strlen($line) && $line[0] != ">") {
-                                $filtered[] = $line;
-                            }
-                        }
-
-                        $truncated = array_slice($filtered, 0, -3);
-
-                        $message = trim(implode("\n", $truncated));
-
-                        $db->insertIssueHistory($from_email, $issue_id, "COMMENT", $message);
-
-                        // There may have been new people included in the reply who should be notified
-                        $issue->addNotify($issue_id, $notify_list);
-                    }
-                    else {
-                        // Import new issue
-
-                        $fields = array(
-                            "title" => $title,
-                            "description" => $body,
-                            "creator" => $from_email,
-                            "notify" => $notify_list,
-                            "tags" => $tags,
-                        );
-
-                        $id = $issue->addIssue($from_email, $fields);
-
-                        $inserted++;
-
-                        // Move elsewhere to general notify function
-                        {
-                            // Send email to all on notify list
-                            // This includes those added automatically
-                            $notify_users = $db->getIssueNotify($id);
-
-                            // old $reply_to potentially had more info (i.e. names);
-                            $reply_to = array();
-                            foreach($notify_users as $user) {
-                                $reply_to[] = $user['name'] . " <" . $user['email'] . ">";
-                            }
-
-                            $reply_subject = "Re: " . $raw_title;
-
-                            $url = "http://192.168.0.2/c/bugtracker2/issue/$id";
-                            // Including a copy in the reply causes jank when gmail tries to quote it.
-                            $reply_body =
-                                "<p><a href=\"$url\">Issue</a> has been created. You will be notified when there are any updates.</p>\n\n"
-                                .'<hr style="border-top: 1px solid #999; margin-top: 50px;" />'
-                                .'<p style="font-size: 0.8em; color: #666;">Issue ID: '.$id.'</p>';
-
-                            $reply_headers = array(
-                                // "CC" => implode(", ", $reply_cc),
-                                "In-Reply-To" => $overview[0]->message_id,
-                            );
-
-                            $mail->sendMail(implode(", ", $reply_to), $reply_subject, $reply_body, $reply_headers);
-                            // var_dump(implode(", ", $reply_to));
-                            // var_dump(implode(", ", $reply_cc));
-                            // continue;
-                        }
-                    }
-
-                }
-                else if(!preg_match("/no-?reply/", $overview[0]->from)) {
-                    // Not spam email
-
-                    echo "Rejected Email found.\n";
-
-                    // Send reply notififying they are not registered
-                    $reply_to = $overview[0]->from;
-                    $reply_subject = "Re: " . $overview[0]->subject;
-                    $reply_body = "<p>Dear $from_name,</p>\n<p>Your issue has <b>not</b> been added. Your email address was not recognised. Please register your email address before submitting any issues.</p>";
-                    $reply_headers = array(
-                        "In-Reply-To" => $overview[0]->message_id
-                    );
-
-                    $mail->sendMail($reply_to, $reply_subject, $reply_body, $reply_headers);
-                }
-                else {
-                    echo "Spam Email found.\n";
-                }
             }
             else {
-                echo "No emails found\n";
+                $from_addresses = $headers->from;
+
+                if ($from_addresses && count($from_addresses) >= 1) {
+
+                    $from_email = $from_addresses[0]->mailbox . "@" . $from_addresses[0]->host;
+                    $from_name = $from_addresses[0]->personal;
+
+                    if (isSelfEmail($from_email)) {
+                        echo "Self-email detected\n";
+                        continue;
+                    }
+
+                    if (is_user($users, $from_email)) {
+
+                        $raw_title = imap_utf8($overview[0]->subject);
+
+                        $issue_id = false;
+
+                        // Parse tags in subject [Tag][Multiple, Tags]
+                        $tags = parseTags($raw_title);
+                        $title = stripTags($raw_title);
+
+                        $body = getPlainText($inbox, $email_number);
+
+                        $notify_list = array($from_email);
+
+                        $reply_to = array($headers->fromaddress);
+                        $reply_cc = array();
+
+                        foreach($headers->to as $addr) {
+                            $email = $addr->mailbox . "@" . $addr->host;
+
+                            if (isSelfEmail($email)) {
+                                if (preg_match("/\+issue(\d+)/", $addr->mailbox, $matches)) {
+                                    // Reply to previous issue
+
+                                    $issue_id = $matches[1];
+                                }
+                            } else {
+                                $notify_list[] = $email;
+                                $reply_to[] = formatAddr($addr);
+                            }
+                        }
+
+                        if(isset($headers->cc)) {
+                            foreach($headers->cc as $addr) {
+                                $email = $addr->mailbox . "@" . $addr->host;
+
+                                if (isSelfEmail($email)) {
+                                    if (preg_match("/\+issue(\d+)/", $addr->mailbox, $matches)) {
+                                        // Reply to previous issue
+
+                                        $issue_id = $matches[1];
+                                    }
+                                } else {
+                                    $notify_list[] = $email;
+                                    $reply_cc[] = formatAddr($addr);
+                                }
+                            }
+                        }
+
+                        if (preg_match("/Issue ID: (\d+)/", $body, $matches)) {
+                            // Reply to previous issue
+
+                            $issue_id = $matches[1];
+                        }
+
+                        if ($issue_id) {
+
+                            echo "Found reply to issue $issue_id\n";
+
+                            $lines = explode("\n", $body);
+                            $filtered = array();
+                            foreach($lines as $line) {
+                                if(strlen($line) && $line[0] != ">") {
+                                    $filtered[] = $line;
+                                }
+                            }
+
+                            $truncated = array_slice($filtered, 0, -3);
+
+                            $message = trim(implode("\n", $truncated));
+
+                            $db->insertIssueHistory($from_email, $issue_id, "COMMENT", $message);
+
+                            // There may have been new people included in the reply who should be notified
+                            $issue->addNotify($issue_id, $notify_list);
+                        }
+                        else {
+                            // Import new issue
+
+                            $fields = array(
+                                "title" => $title,
+                                "description" => $body,
+                                "creator" => $from_email,
+                                "notify" => $notify_list,
+                                "tags" => $tags,
+                            );
+
+                            $id = $issue->addIssue($from_email, $fields);
+
+                            $inserted++;
+
+                            $issue->notifyNewIssue($id, array("In-Reply-To" => $overview[0]->message_id));
+                        }
+
+                    }
+                    else if(!preg_match("/no-?reply/", $overview[0]->from)) {
+                        // Not spam email
+
+                        echo "Rejected Email found.\n";
+
+                        // Send reply notififying they are not registered
+                        $reply_to = $overview[0]->from;
+                        $reply_subject = "Re: " . $overview[0]->subject;
+                        $reply_body = "<p>Dear $from_name,</p>\n<p>Your issue has <b>not</b> been added. Your email address was not recognised. Please register your email address before submitting any issues.</p>";
+                        $reply_headers = array(
+                            "In-Reply-To" => $overview[0]->message_id
+                        );
+
+                        $mail->sendMail($reply_to, $reply_subject, $reply_body, $reply_headers);
+                    }
+                    else {
+                        echo "Spam Email found.\n";
+                    }
+                }
+                else {
+                    echo "No emails found\n";
+                }
             }
 
             // Archive email

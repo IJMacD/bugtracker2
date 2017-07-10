@@ -111,6 +111,8 @@ switch (count($parts) > 0 ? $parts[0] : "") {
 
         $id = $issue->addIssue($session->username, $options);
 
+        $issue->notifyNewIssue($id);
+
         redirect(URL_BASE . "/issue/" . $id);
       } else {
         redirect(URL_BASE);
@@ -200,24 +202,11 @@ function methodUnavailable() {
 function viewIndex($context) {
   global $session;
   $title = isset($context['title']) ? $context['title'] : "BugTracker";
-  renderHeader();
-
-  $new_link = URL_BASE . "/issue/new";
-
-  if(isset($context['new_link'])) {
-    $new_link .= $context['new_link'];
-  }
+  renderHeader($context);
   ?>
 
   <h1>
     <?php echo $title ?>
-    <?php
-    if ($session->canEdit()) {
-    ?>
-      <a class="btn btn-primary" href="<?php echo $new_link; ?>">New Issue</a>
-    <?php
-    }
-    ?>
   </h1>
 
   <table class="table">
@@ -684,6 +673,12 @@ function formatUserAddress($user){
 
 function renderHeader($context=array()) {
   global $session;
+
+  $new_link = URL_BASE . "/issue/new";
+
+  if(isset($context['new_link'])) {
+    $new_link .= $context['new_link'];
+  }
   ?>
   <!DOCTYPE html>
   <html>
@@ -837,6 +832,14 @@ function renderHeader($context=array()) {
   <body>
     <div class="navbar navbar-inverse bg-inverse navbar-toggleable-md">
       <a class="navbar-brand" href="<?php echo URL_BASE ?>">BugTracker</a>
+
+      <?php
+      if ($session->canEdit()) {
+      ?>
+        <a class="btn btn-primary" href="<?php echo $new_link; ?>">New Issue</a>
+      <?php
+      }
+      ?>
 
       <div class="ml-auto">
         <?php

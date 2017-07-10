@@ -321,6 +321,7 @@ class DB {
     return "SELECT
       a.id as id,title,status,description,
       UNIX_TIMESTAMP(created) as 'date',
+      UNIX_TIMESTAMP(created) as 'created',
       creator as 'creator_email',
       b.name as 'creator_name',
       UNIX_TIMESTAMP(assigned) as 'assigned',
